@@ -3,4 +3,16 @@ name = "acubench"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib", "rlib", "staticlib"]
+name = "acubench"
+
 [dependencies]
+uniffi = { version = "0.28.3", features = ["cli"] }
+
+[build-dependencies]
+uniffi = { version = "0.28.3", features = ["build"] }
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "bin/uniffi-bindgen.rs"
