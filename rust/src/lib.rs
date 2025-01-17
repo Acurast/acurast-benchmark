@@ -1,14 +1,22 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+#[cfg(any(target_os = "android", target_os = "ios"))]
+uniffi::setup_scaffolding!();
+
+#[cfg(any(target_os = "android", target_os = "ios"))]
+pub mod ffi;
+
+pub struct CpuFeatures {
+    aes: bool,
+    sha2: bool,
+    sve: bool,
+    i8mm: bool,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub struct Bench {
+    features: CpuFeatures,
+}
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+impl Bench {
+    fn new(features: CpuFeatures) -> Self {
+        Self { features }
     }
 }
