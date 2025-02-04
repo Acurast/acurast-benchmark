@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <sys/auxv.h>
 #include <asm/hwcap.h>
+#include <vector>
 
 #include "ffi.h"
 #include "acubench.h"
@@ -18,12 +19,12 @@ void throw_runtime_exception(JNIEnv *env, const char *message) {
 
 extern "C"
 JNIEXPORT jlong JNICALL
-Java_com_acurast_bench_Acubench__1_1new_1_1(JNIEnv *env, jobject thiz, jlong total_ram) {
+Java_com_acurast_bench_Acubench__1_1new_1_1(JNIEnv *env, jobject thiz, jlong total_ram, jlong avail_storage) {
     auto hwcap = getauxval(AT_HWCAP);
     auto hwcap2 = getauxval(AT_HWCAP2);
 
-    auto bench = new_bench(total_ram, hwcap, hwcap2, TypedU64{.t = 0, .v = HWCAP_SVE},
-                             TypedU64{.t = 1, .v = HWCAP2_I8MM});
+    auto bench = new_bench(total_ram, avail_storage, hwcap, hwcap2, TypedU64{.t = 0, .v = HWCAP_SVE},
+                           TypedU64{.t = 1, .v = HWCAP2_I8MM});
 
     return reinterpret_cast<jlong>(bench);
 }
@@ -104,6 +105,38 @@ Java_com_acurast_bench_Acubench__1_1ram_1_1(JNIEnv *env, jobject thiz, jlong ptr
         throw_runtime_exception(env, report->err);
     }
     drop_ram_report(report);
+
+    return jreport;
+}
+
+jobject jstorage_report(JNIEnv *env, StorageReport *report) {
+    jclass clazz = env->FindClass("com/acurast/bench/Acubench$StorageReport");
+    jmethodID init = env->GetMethodID(clazz, "<init>", "(JDD)V");
+
+    return env->NewObject(clazz, init, (jlong) report->avail_storage, report->access_seq_avg_t, report->access_rand_avg_t);
+}
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_acurast_bench_Acubench__1_1storage_1_1(JNIEnv *env, jobject thiz, jlong ptr, jbyteArray dir,
+                                                jlong access_data_len_mb, jlong iters) {
+    jsize dir_len = env->GetArrayLength(dir);
+    jbyte *jdir = env->GetByteArrayElements(dir, nullptr);
+    std::vector<char> dir_vec(reinterpret_cast<char*>(jdir), reinterpret_cast<char*>(jdir) + dir_len);
+    env->ReleaseByteArrayElements(dir, jdir, JNI_ABORT);
+
+    auto report = bench_storage((void *) ptr, StorageConfig{
+        .dir = dir_vec.data(),
+        .dir_len = dir_vec.size(),
+        .access_data_len_mb = (size_t) access_data_len_mb,
+        .iters = (size_t) iters
+    });
+
+    auto jreport = jstorage_report(env, report);
+    if (report->err != nullptr && report->err_len != 0) {
+        throw_runtime_exception(env, report->err);
+    }
+    drop_storage_report(report);
 
     return jreport;
 }

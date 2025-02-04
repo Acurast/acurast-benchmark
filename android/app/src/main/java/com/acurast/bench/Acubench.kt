@@ -2,7 +2,9 @@ package com.acurast.bench
 
 import android.app.ActivityManager
 import android.content.Context
+import android.os.StatFs
 import androidx.core.content.getSystemService
+import java.io.File
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -10,7 +12,7 @@ public class Acubench(context: Context) {
     private val ptr: Long
 
     init {
-        ptr = __new__(context.totalRam ?: 0)
+        ptr = __new__(context.totalRam ?: 0, context.availableStorage)
     }
 
     public fun cpu(config: CpuConfig = CpuConfig()): CpuReport =
@@ -21,6 +23,12 @@ public class Acubench(context: Context) {
 
     public fun ram(config: RamConfig = RamConfig()): RamReport =
         __ram__(ptr, config.allocDataSize, config.accessDataSize, config.iters)
+
+    public fun storage(config: StorageConfig): StorageReport =
+        __storage__(ptr, config.dir.absolutePath.toByteArray(charset = Charsets.UTF_8), config.accessDataSizeMB, config.iters)
+
+    public fun storage(context: Context): StorageReport =
+        storage(StorageConfig(context))
 
     public fun destroy() {
         __delete__(ptr)
@@ -36,7 +44,10 @@ public class Acubench(context: Context) {
             return memInfo.totalMem
         }
 
-    private external fun __new__(totalRam: Long): Long
+    private val Context.availableStorage: Long
+        get() = StatFs(dataDir.path).availableBytes
+
+    private external fun __new__(totalRam: Long, availStorage: Long): Long
     private external fun __delete__(ptr: Long)
 
     private external fun __cpu__(ptr: Long, duration: Long, encDataLen: Long, mathDataLen: Long, sortDataLen: Long): CpuReport
@@ -44,13 +55,20 @@ public class Acubench(context: Context) {
 
     private external fun __ram__(ptr: Long, allocDataLen: Long, accessDataLen: Long, iters: Long): RamReport
 
+    private external fun __storage__(ptr: Long, dir: ByteArray, accessDataLenMB: Long, iters: Long): StorageReport
+
     public data class CpuConfig(
-        val duration: Duration = 10.seconds,
-        val encodingDataSize: Long = 4096,
-        val mathDataSize: Long = 200,
-        val sortDataSize: Long = 100_000,
+        val duration: Duration = DURATION_DEFAULT,
+        val encodingDataSize: Long = ENCODING_DATA_SIZE_DEFAULT,
+        val mathDataSize: Long = MATH_DATA_SIZE_DEFAULT,
+        val sortDataSize: Long = SORT_DATA_SIZE_DEFAULT,
     ) {
-        public companion object
+        public companion object {
+            private val DURATION_DEFAULT = 10.seconds
+            private const val ENCODING_DATA_SIZE_DEFAULT = 4096L
+            private const val MATH_DATA_SIZE_DEFAULT = 200L
+            private const val SORT_DATA_SIZE_DEFAULT = 100_000L
+        }
     }
 
     public data class CpuReport(
@@ -62,19 +80,48 @@ public class Acubench(context: Context) {
     }
 
     public data class RamConfig(
-        val allocDataSize: Long = 64 * 1024 * 1024,
-        val accessDataSize: Long = 64 * 1024,
-        val iters: Long = 100,
+        val allocDataSize: Long = ALLOC_DATA_SIZE_DEFAULT,
+        val accessDataSize: Long = ACCESS_DATA_SIZE_DEFAULT,
+        val iters: Long = ITERS_DEFAULT,
     ) {
-        public companion object
+        public companion object {
+            private const val ALLOC_DATA_SIZE_DEFAULT = 64L * 1024 * 1024
+            private const val ACCESS_DATA_SIZE_DEFAULT = 64L * 1024
+            private const val ITERS_DEFAULT = 100L
+        }
     }
 
     public data class RamReport(
-        val totalMem: Long,
+        val totalMemory: Long,
         val allocAvgTime: Double,
         val accessSequentialAvgTime: Double,
         val accessRandomAvgTime: Double,
         val accessConcurrentAvgTime: Double,
+    ) {
+        public companion object
+    }
+
+    public data class StorageConfig(
+        val dir: File,
+        val accessDataSizeMB: Long = ACCESS_DATA_SIZE_MB_DEFAULT,
+        val iters: Long = ITERS_DEFAULT,
+    ) {
+        public constructor(
+            context: Context,
+            accessDataSizeMB: Long = ACCESS_DATA_SIZE_MB_DEFAULT,
+            iters: Long = ITERS_DEFAULT,
+        ) : this(context.cacheDir, accessDataSizeMB, iters)
+
+        public companion object {
+            private const val ACCESS_DATA_SIZE_MB_DEFAULT = 200L
+            private const val ITERS_DEFAULT = 1L
+        }
+    }
+
+    public data class StorageReport(
+        val availableStorage: Long,
+        val accessSequentialAvgTime: Double,
+        val accessRandomAvgTime: Double,
     ) {
         public companion object
     }

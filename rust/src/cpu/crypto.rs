@@ -20,7 +20,7 @@ pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, E
     let mut report_builder = ReportBuilder::new(context.timeout.duration);
 
     while !context.timeout.reached() {
-        context.rng.fill_bytes(&mut context.data);
+        context.reset_data();
 
         let bytes = black_box(
             encryption::run_test(
@@ -321,6 +321,10 @@ impl Context {
             hash,
             timeout,
         }
+    }
+
+    fn reset_data(&mut self) {
+        self.rng.fill_bytes(&mut self.data);
     }
 }
 

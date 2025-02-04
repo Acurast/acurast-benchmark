@@ -10,7 +10,7 @@ pub(crate) fn bench(features: &CpuFeatures, config: Config) -> Result<Report, Er
 
     let mut start: Instant;
     for _ in 0..context.iters {
-        context.data = vec![0u8; context.data.len()];
+        context.reset_data();
 
         start = Instant::now();
         black_box(sequential::run_test(&mut context.data)?);
@@ -21,7 +21,7 @@ pub(crate) fn bench(features: &CpuFeatures, config: Config) -> Result<Report, Er
     let mut write_indices;
     let mut read_indices;
     for _ in 0..context.iters {
-        context.data = vec![0u8; context.data.len()];
+        context.reset_data();
 
         write_indices = indices.clone();
         write_indices.shuffle(&mut context.rng);
@@ -36,7 +36,7 @@ pub(crate) fn bench(features: &CpuFeatures, config: Config) -> Result<Report, Er
 
     let chunk_size = context.data.len().div_ceil(features.num_cores);
     for _ in 0..context.iters {
-        context.data = vec![0u8; context.data.len()];
+        context.reset_data();
         let chunks = context.data.chunks_mut(chunk_size).collect::<Vec<_>>();
         
         start = Instant::now();
@@ -205,6 +205,12 @@ impl Context {
             iters: config.iters,
             data,
         }
+    }
+
+    fn reset_data(&mut self) {
+        let size = self.data.len();
+        self.data.clear();
+        self.data.resize(size, 0);
     }
 }
 

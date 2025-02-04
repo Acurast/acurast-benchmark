@@ -1,6 +1,6 @@
-use std::{ptr::null, time::Duration};
+use std::{path::PathBuf, ptr::null, slice, str, time::Duration};
 
-use crate::{arm::{Auxval, AuxvalMask}, cpu, ram, Bench};
+use crate::{arm::{Auxval, AuxvalMask}, cpu, ram, storage, Bench};
 
 #[repr(C)]
 pub struct TypedU64 {
@@ -11,12 +11,13 @@ pub struct TypedU64 {
 #[no_mangle]
 pub extern "C" fn new_bench(
     total_ram: u64,
+    avail_storage: u64,
     hwcap: u64,
     hwcap2: u64,
     sve_mask: TypedU64,
     i8mm_mask: TypedU64,
 ) -> *mut Bench {
-    let bench = Bench::with_auxval(total_ram, Auxval {
+    let bench = Bench::with_auxval(total_ram, avail_storage, Auxval {
         hwcap,
         hwcap2,
         sve_mask: sve_mask.into(),
@@ -106,6 +107,42 @@ pub extern "C" fn bench_ram(bench: *mut Bench, config: RamConfig) -> *const RamR
 pub extern "C" fn drop_ram_report(report: *const RamReport) {
     unsafe {
         let report = Box::from_raw(report as *mut RamReport);
+        drop_string(report.err, report.err_len);
+
+        drop(report);
+    }
+}
+
+#[repr(C)]
+pub struct StorageConfig {
+    dir: *const u8,
+    dir_len: usize,
+    access_data_len_mb: usize,
+    iters: usize,
+}
+
+#[repr(C)]
+pub struct StorageReport {
+    avail_storage: u64,
+    access_seq_avg_t: f64,
+    access_rand_avg_t: f64,
+
+    err: *const u8,
+    err_len: usize,
+}
+
+#[no_mangle]
+pub extern "C" fn bench_storage(bench: *mut Bench, config: StorageConfig) -> *const StorageReport {
+    let bench = unsafe { &mut *bench };
+    let report = bench.storage(config.into());
+
+    Box::into_raw(Box::new(report.into()))
+}
+
+#[no_mangle]
+pub extern "C" fn drop_storage_report(report: *const StorageReport) {
+    unsafe {
+        let report = Box::from_raw(report as *mut StorageReport);
         drop_string(report.err, report.err_len);
 
         drop(report);
@@ -218,6 +255,49 @@ impl From<Result<ram::Report, ram::Error>> for RamReport {
                     access_seq_avg_t: 0.,
                     access_rand_avg_t: 0.,
                     access_con_avg_t: 0.,
+                    err: err.as_ptr(),
+                    err_len: err.len(),
+                };
+
+                std::mem::forget(err);
+
+                report
+            },
+        }
+    }
+}
+
+impl From<StorageConfig> for storage::Config {
+    fn from(value: StorageConfig) -> Self {
+        let dir = unsafe { str::from_utf8(slice::from_raw_parts(value.dir, value.dir_len)).unwrap() };
+
+        Self {
+            access: storage::access::Config {
+                dir: PathBuf::from(dir),
+                data_len_mb: value.access_data_len_mb,
+                iters: value.iters,
+                ..Default::default()
+            },
+        }
+    }
+}
+
+impl From<Result<storage::Report, storage::Error>> for StorageReport {
+    fn from(value: Result<storage::Report, storage::Error>) -> Self {
+        match value {
+            Ok(report) => Self {
+                avail_storage: report.avail_storage,
+                access_seq_avg_t: report.access.seq_avg_t.as_secs_f64(),
+                access_rand_avg_t: report.access.rand_avg_t.as_secs_f64(),
+                err: null(),
+                err_len: 0,
+            },
+            Err(err) => {
+                let err = format!("{err:?}");
+                let report = Self {
+                    avail_storage: 0,
+                    access_seq_avg_t: 0.,
+                    access_rand_avg_t: 0.,
                     err: err.as_ptr(),
                     err_len: err.len(),
                 };

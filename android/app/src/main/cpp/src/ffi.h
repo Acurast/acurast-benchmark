@@ -20,6 +20,7 @@ extern "C" {
 
     void* new_bench(
         uint64_t total_ram,
+        uint64_t avail_storage,
         uint64_t hwcap,
         uint64_t hwcap2,
         TypedU64 sve_mask,
@@ -65,6 +66,24 @@ extern "C" {
 
     RamReport* bench_ram(void *bench, RamConfig config);
     void drop_ram_report(void *report);
+
+struct StorageConfig {
+    const char *dir;
+    size_t dir_len;
+    size_t access_data_len_mb;
+    size_t iters;
+};
+
+struct StorageReport {
+    uint64_t avail_storage;
+    double access_seq_avg_t;
+    double access_rand_avg_t;
+    const char *err;
+    size_t err_len;
+};
+
+StorageReport* bench_storage(void *bench, StorageConfig config);
+void drop_storage_report(void *report);
 
     /******** C++ -> Rust ********/
 
