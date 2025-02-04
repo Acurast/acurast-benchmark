@@ -84,6 +84,10 @@ impl Avg for Vec<Duration> {
     type T = Duration;
 
     fn avg(&self) -> Self::T {
+        if self.len() == 0 {
+            return Duration::ZERO;
+        }
+        
         self.iter().sum::<Duration>() / (self.len() as u32)
     }
 }

@@ -9,9 +9,7 @@ pub(crate) fn bench(features: &CpuFeatures, config: Config) -> Result<Report, Er
     let mut report_builder = ReportBuilder::new(context.timeout.duration);
     
     'main: while !context.timeout.reached() {
-        context.rng.fill(&mut context.matrix_a_i8[..]);
-        context.rng.fill(&mut context.matrix_b_i8[..]);
-        context.matrix_r_i32 = vec![0; context.matrix_r_i32.len()];
+        context.reset_imatrices();
 
         let ops = if features.i8mm && features.sve {
             black_box(
@@ -58,9 +56,7 @@ pub(crate) fn bench_multithread(features: &CpuFeatures, config: Config) -> Resul
     let mut result_builder = ReportBuilder::new(context.timeout.duration);
     
     'main: while !context.timeout.reached() {
-        context.rng.fill(&mut context.matrix_a_f32[..]);
-        context.rng.fill(&mut context.matrix_b_f32[..]);
-        context.matrix_r_f32 = vec![0.; context.matrix_r_f32.len()];
+        context.reset_fmatrices();
 
         let ops = black_box(
             matrix::run_test_multithread(
@@ -319,6 +315,17 @@ struct Context {
     timeout: Timeout,
 }
 
+macro_rules! reset_matrices {
+    ($rng: expr, $matrix_a: expr, $matrix_b: expr, $matrix_r: expr, $r_default: expr) => {
+        $rng.fill(&mut $matrix_a[..]);
+        $rng.fill(&mut $matrix_b[..]);
+
+        let r_size = $matrix_r.len();
+        $matrix_r.clear();
+        $matrix_r.resize(r_size, $r_default);
+    };
+}
+
 impl Context {
     fn new(config: Config) -> Self {
         let n = if is_pow(config.n, 2) {
@@ -358,6 +365,14 @@ impl Context {
             matrix_r_f32,
             timeout,
         }
+    }
+
+    fn reset_imatrices(&mut self) {
+        reset_matrices!(self.rng, self.matrix_a_i8, self.matrix_b_i8, self.matrix_r_i32, 0);
+    }
+
+    fn reset_fmatrices(&mut self) {
+        reset_matrices!(self.rng, self.matrix_a_f32, self.matrix_b_f32, self.matrix_r_f32, 0.);
     }
 }
 

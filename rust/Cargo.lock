@@ -8,6 +8,7 @@ version = "0.1.0"
 dependencies = [
  "aes",
  "hex-literal",
+ "libc",
  "num_cpus",
  "rand",
  "rayon",
