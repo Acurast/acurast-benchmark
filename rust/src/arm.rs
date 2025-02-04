@@ -36,10 +36,14 @@ pub enum AuxvalMask {
 
 impl Bench {
     pub(crate) fn with_auxval(total_ram: u64, avail_storage: u64, auxval: Auxval) -> Self {
-        Self::with_features(total_ram, avail_storage, CpuFeatures { 
-            num_cores: num_cpus::get(),
-            sve: auxval.sve(), 
-            i8mm: auxval.i8mm(), 
-        })
+        Self::with_features(
+            total_ram,
+            avail_storage,
+            CpuFeatures {
+                num_cores: num_cpus::get(),
+                sve: auxval.sve(),
+                i8mm: auxval.i8mm(),
+            },
+        )
     }
 }

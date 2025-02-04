@@ -1,6 +1,9 @@
 use std::{path::PathBuf, ptr::null, slice, str, time::Duration};
 
-use crate::{arm::{Auxval, AuxvalMask}, cpu, ram, storage, Bench};
+use crate::{
+    arm::{Auxval, AuxvalMask},
+    cpu, ram, storage, Bench,
+};
 
 #[repr(C)]
 pub struct TypedU64 {
@@ -17,12 +20,16 @@ pub extern "C" fn new_bench(
     sve_mask: TypedU64,
     i8mm_mask: TypedU64,
 ) -> *mut Bench {
-    let bench = Bench::with_auxval(total_ram, avail_storage, Auxval {
-        hwcap,
-        hwcap2,
-        sve_mask: sve_mask.into(),
-        i8mm_mask: i8mm_mask.into(),
-    });
+    let bench = Bench::with_auxval(
+        total_ram,
+        avail_storage,
+        Auxval {
+            hwcap,
+            hwcap2,
+            sve_mask: sve_mask.into(),
+            i8mm_mask: i8mm_mask.into(),
+        },
+    );
 
     Box::into_raw(Box::new(bench))
 }
@@ -161,7 +168,7 @@ impl From<TypedU64> for AuxvalMask {
         match value.t {
             0 => Self::HWCAP(value.v),
             1 => Self::HWCAP2(value.v),
-            _ => Self::HWCAP2(value.v)
+            _ => Self::HWCAP2(value.v),
         }
     }
 }
@@ -185,7 +192,7 @@ impl From<CpuConfig> for cpu::Config {
                 duration,
                 data_len: value.sort_data_len.try_into().unwrap(),
                 ..Default::default()
-            }
+            },
         }
     }
 }
@@ -202,7 +209,7 @@ impl From<Result<cpu::Report, cpu::Error>> for CpuReport {
             },
             Err(err) => {
                 let err = format!("{err:?}");
-                let report = Self { 
+                let report = Self {
                     crypto_tps: 0.,
                     math_tps: 0.,
                     sort_tps: 0.,
@@ -213,7 +220,7 @@ impl From<Result<cpu::Report, cpu::Error>> for CpuReport {
                 std::mem::forget(err);
 
                 report
-            },
+            }
         }
     }
 }
@@ -262,14 +269,15 @@ impl From<Result<ram::Report, ram::Error>> for RamReport {
                 std::mem::forget(err);
 
                 report
-            },
+            }
         }
     }
 }
 
 impl From<StorageConfig> for storage::Config {
     fn from(value: StorageConfig) -> Self {
-        let dir = unsafe { str::from_utf8(slice::from_raw_parts(value.dir, value.dir_len)).unwrap() };
+        let dir =
+            unsafe { str::from_utf8(slice::from_raw_parts(value.dir, value.dir_len)).unwrap() };
 
         Self {
             access: storage::access::Config {
@@ -305,7 +313,7 @@ impl From<Result<storage::Report, storage::Error>> for StorageReport {
                 std::mem::forget(err);
 
                 report
-            },
+            }
         }
     }
 }

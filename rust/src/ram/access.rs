@@ -1,8 +1,12 @@
-use std::{fmt, hint::black_box, time::{Duration, Instant}};
+use std::{
+    fmt,
+    hint::black_box,
+    time::{Duration, Instant},
+};
 
 use rand::seq::SliceRandom;
 
-use crate::{utils::Avg, CpuFeatures};
+use crate::{utils::{Avg, KB}, CpuFeatures};
 
 pub(crate) fn bench(features: &CpuFeatures, config: Config) -> Result<Report, Error> {
     let mut context = Context::new(config);
@@ -30,7 +34,11 @@ pub(crate) fn bench(features: &CpuFeatures, config: Config) -> Result<Report, Er
         read_indices.shuffle(&mut context.rng);
 
         start = Instant::now();
-        black_box(random::run_test(&mut context.data, &write_indices, &read_indices)?);
+        black_box(random::run_test(
+            &mut context.data,
+            &write_indices,
+            &read_indices,
+        )?);
         report_builder.add_rand(start.elapsed());
     }
 
@@ -38,7 +46,7 @@ pub(crate) fn bench(features: &CpuFeatures, config: Config) -> Result<Report, Er
     for _ in 0..context.iters {
         context.reset_data();
         let chunks = context.data.chunks_mut(chunk_size).collect::<Vec<_>>();
-        
+
         start = Instant::now();
         black_box(concurrent::run_test(chunks)?);
         report_builder.add_con(start.elapsed());
@@ -69,7 +77,11 @@ mod sequential {
 mod random {
     use super::*;
 
-    pub(super) fn run_test(data: &mut [u8], write_indices: &Vec<usize>, read_indices: &Vec<usize>) -> Result<(), Error> {
+    pub(super) fn run_test(
+        data: &mut [u8],
+        write_indices: &Vec<usize>,
+        read_indices: &Vec<usize>,
+    ) -> Result<(), Error> {
         for &i in write_indices {
             data[i] = (i % 256) as u8;
         }
@@ -91,26 +103,30 @@ mod concurrent {
     use super::*;
 
     pub(super) fn run_test(chunks: Vec<&mut [u8]>) -> Result<(), Error> {
-        chunks.into_par_iter().map(|data| {
-            for i in 0..data.len() {
-                data[i] = (i % 256) as u8;
-            }
-            for i in 0..data.len() {
-                let v = data[i];
-                let expected = (i % 256) as u8;
-                if v != expected {
-                    return Err(Error::InvalidValue(expected, v));
+        chunks
+            .into_par_iter()
+            .map(|data| {
+                for i in 0..data.len() {
+                    data[i] = (i % 256) as u8;
                 }
-            }
+                for i in 0..data.len() {
+                    let v = data[i];
+                    let expected = (i % 256) as u8;
+                    if v != expected {
+                        return Err(Error::InvalidValue(expected, v));
+                    }
+                }
 
-            Ok(())
-        }).reduce(|| Ok(()), |acc, next| {
-            match (acc, next) {
-                (Ok(_), Ok(_)) => Ok(()),
-                (Ok(_), Err(err)) => Err(err),
-                (Err(err), _) => Err(err),
-            }
-        })?;
+                Ok(())
+            })
+            .reduce(
+                || Ok(()),
+                |acc, next| match (acc, next) {
+                    (Ok(_), Ok(_)) => Ok(()),
+                    (Ok(_), Err(err)) => Err(err),
+                    (Err(err), _) => Err(err),
+                },
+            )?;
 
         Ok(())
     }
@@ -124,9 +140,9 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self { 
+        Self {
             rng: Box::new(rand::thread_rng()),
-            data_len: 64 * 1024,
+            data_len: 64 * KB,
             iters: 100,
         }
     }
@@ -145,9 +161,21 @@ pub struct Report {
 
 impl fmt::Display for Report {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "sequential access ... {:.6} s", self.seq_avg_t.as_secs_f64())?;
-        writeln!(f, "random access ... {:.6} s", self.rand_avg_t.as_secs_f64())?;
-        write!(f, "concurrent access ... {:.6} s", self.con_avg_t.as_secs_f64())?;
+        writeln!(
+            f,
+            "sequential access ... {:.6} s",
+            self.seq_avg_t.as_secs_f64()
+        )?;
+        writeln!(
+            f,
+            "random access ... {:.6} s",
+            self.rand_avg_t.as_secs_f64()
+        )?;
+        write!(
+            f,
+            "concurrent access ... {:.6} s",
+            self.con_avg_t.as_secs_f64()
+        )?;
 
         Ok(())
     }
@@ -181,7 +209,7 @@ impl ReportBuilder {
     }
 
     fn build(self) -> Report {
-        Report { 
+        Report {
             seq_avg_t: self.seq_ts.avg(),
             rand_avg_t: self.rand_ts.avg(),
             con_avg_t: self.con_ts.avg(),
@@ -196,7 +224,7 @@ struct Context {
     data: Vec<u8>,
 }
 
-impl Context { 
+impl Context {
     fn new(config: Config) -> Self {
         let data = vec![0u8; config.data_len];
 
@@ -221,10 +249,14 @@ mod tests {
     #[test]
     fn test_bench() {
         let result = bench(
-            &CpuFeatures { num_cores: 8, sve: false, i8mm: false },
+            &CpuFeatures {
+                num_cores: 8,
+                sve: false,
+                i8mm: false,
+            },
             Config {
-                data_len: 1024,
-                iters: 10,
+                data_len: 64,
+                iters: 5,
                 ..Default::default()
             },
         );

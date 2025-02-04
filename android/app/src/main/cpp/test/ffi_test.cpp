@@ -33,7 +33,12 @@ Java_com_acurast_bench_AcubenchNativeTest__1_1test_1matrix_1mul_1i8mm_1_1(JNIEnv
             8706, 4458, 6360, 3510,
     };
 
-    matrix_mul_i8mm(matrix_a, matrix_b, matrix_r, 4, 0);
+    int64_t ops_expected = 64;
+
+    int64_t ops = matrix_mul_i8mm(matrix_a, matrix_b, matrix_r, 4, 0);
+    if (ops != ops_expected) {
+        return false;
+    }
 
     bool equal = true;
     for (auto i = 0; i < 16; i++) {

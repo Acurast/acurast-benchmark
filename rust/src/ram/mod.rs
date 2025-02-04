@@ -1,7 +1,9 @@
 use core::fmt;
 
-pub(crate) mod alloc;
+use crate::utils::MB;
+
 pub(crate) mod access;
+pub(crate) mod alloc;
 
 pub struct Config {
     pub alloc: alloc::Config,
@@ -10,7 +12,7 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self { 
+        Self {
             alloc: Default::default(),
             access: Default::default(),
         }
@@ -27,7 +29,7 @@ impl fmt::Display for Report {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let i = "::::";
         writeln!(f, "RAM")?;
-        writeln!(f, "{i} total mem {} MB", self.total_mem / 1024 / 1024)?;
+        writeln!(f, "{i} total mem {} MB", self.total_mem / MB as u64)?;
         writeln!(f, "{i} {}", self.alloc)?;
         write!(f, "{i} {}", self.access)?;
 

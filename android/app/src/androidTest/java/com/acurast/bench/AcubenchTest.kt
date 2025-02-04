@@ -35,8 +35,42 @@ class AcubenchTest {
     }
 
     @Test
+    fun testAll() {
+        val time = measureTime {
+            val cpuReport = acubench.cpu()
+            assert(cpuReport.cryptoTps > 0)
+            assert(cpuReport.mathTps > 0)
+            assert(cpuReport.sortTps > 0)
+
+            val cpuMultithreadReport = acubench.cpuMultithread()
+            assert(cpuMultithreadReport.cryptoTps > 0)
+            assert(cpuMultithreadReport.mathTps > 0)
+            assert(cpuMultithreadReport.sortTps > 0)
+
+            val ramReport = acubench.ram()
+            assert(ramReport.totalMemory > 0)
+            assert(ramReport.allocAvgTime > 0)
+            assert(ramReport.accessSequentialAvgTime > 0)
+            assert(ramReport.accessRandomAvgTime > 0)
+            assert(ramReport.accessConcurrentAvgTime > 0)
+
+            val storageReport = acubench.storage(context)
+            assert(storageReport.availableStorage > 0)
+            assert(storageReport.accessSequentialAvgTime > 0)
+            assert(storageReport.accessRandomAvgTime > 0)
+
+            println("cpu (singlecore) $cpuReport")
+            println("cpu (multicore) $cpuMultithreadReport")
+            println("ram $ramReport")
+            println("storage $storageReport")
+        }
+
+        println("time = $time")
+    }
+
+    @Test
     fun testCpu() {
-        val duration = 9.seconds
+        val duration = 9000.seconds
         val time = measureTime {
             val report = acubench.cpu(Acubench.CpuConfig(duration = duration))
 

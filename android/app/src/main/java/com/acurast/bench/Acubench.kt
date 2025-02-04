@@ -64,8 +64,8 @@ public class Acubench(context: Context) {
         val sortDataSize: Long = SORT_DATA_SIZE_DEFAULT,
     ) {
         public companion object {
-            private val DURATION_DEFAULT = 10.seconds
-            private const val ENCODING_DATA_SIZE_DEFAULT = 4096L
+            private val DURATION_DEFAULT = 3.seconds
+            private const val ENCODING_DATA_SIZE_DEFAULT = 10 * KB
             private const val MATH_DATA_SIZE_DEFAULT = 200L
             private const val SORT_DATA_SIZE_DEFAULT = 100_000L
         }
@@ -85,9 +85,9 @@ public class Acubench(context: Context) {
         val iters: Long = ITERS_DEFAULT,
     ) {
         public companion object {
-            private const val ALLOC_DATA_SIZE_DEFAULT = 64L * 1024 * 1024
-            private const val ACCESS_DATA_SIZE_DEFAULT = 64L * 1024
-            private const val ITERS_DEFAULT = 100L
+            private const val ALLOC_DATA_SIZE_DEFAULT = 64 * MB
+            private const val ACCESS_DATA_SIZE_DEFAULT = 64 * KB
+            private const val ITERS_DEFAULT = 10L
         }
     }
 
@@ -113,7 +113,7 @@ public class Acubench(context: Context) {
         ) : this(context.cacheDir, accessDataSizeMB, iters)
 
         public companion object {
-            private const val ACCESS_DATA_SIZE_MB_DEFAULT = 200L
+            private const val ACCESS_DATA_SIZE_MB_DEFAULT = 50L
             private const val ITERS_DEFAULT = 1L
         }
     }
@@ -127,6 +127,9 @@ public class Acubench(context: Context) {
     }
 
     public companion object {
+        private const val KB = 1024L
+        private const val MB = KB * KB
+
         public fun initNative() {
             System.loadLibrary("acubench")
         }

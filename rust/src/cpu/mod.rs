@@ -12,7 +12,7 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self { 
+        Self {
             crypto: Default::default(),
             math: Default::default(),
             sort: Default::default(),

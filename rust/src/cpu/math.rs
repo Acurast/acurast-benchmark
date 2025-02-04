@@ -1,38 +1,46 @@
-use std::{fmt, hint::black_box, time::Duration};
+use std::{
+    fmt,
+    hint::black_box,
+    time::{Duration, Instant},
+};
 
 use rand::Rng;
 
-use crate::{utils::{closest_pow, is_pow, Expirable, GetValue, Timeout}, CpuFeatures};
+use crate::{
+    utils::{closest_pow, is_pow, vec_with_len, Expirable, GetValue, Timeout},
+    CpuFeatures,
+};
 
 pub(crate) fn bench(features: &CpuFeatures, config: Config) -> Result<Report, Error> {
     let mut context = Context::new(config);
-    let mut report_builder = ReportBuilder::new(context.timeout.duration);
-    
+    let mut report_builder = ReportBuilder::new();
+
+    let mut start: Instant;
     'main: while !context.timeout.reached() {
         context.reset_imatrices();
 
+        start = Instant::now();
         let ops = if features.i8mm && features.sve {
-            black_box(
-                matrix::run_test_simd(
-                    &context.matrix_a_i8[..], 
-                    &context.matrix_b_i8[..], 
-                    &mut context.matrix_r_i32[..],
-                    context.n,
-                    Some(&context.timeout),
-                )
-            )
+            black_box(matrix::run_test_simd(
+                &context.matrix_a_i8[..],
+                &context.matrix_b_i8[..],
+                &mut context.matrix_r_i32[..],
+                context.n,
+                Some(&context.timeout),
+            ))
         } else {
-            black_box(
-                matrix::run_test(
-                    &context.matrix_a_i8.chunks(context.n).collect::<Vec<_>>()[..],
-                    &context.matrix_b_i8.chunks(context.n).collect::<Vec<_>>()[..],
-                    &mut context.matrix_r_i32.chunks_mut(context.n).collect::<Vec<_>>()[..],
-                    Some(&context.timeout),
-                )
-            )
+            black_box(matrix::run_test(
+                &context.matrix_a_i8.chunks(context.n).collect::<Vec<_>>()[..],
+                &context.matrix_b_i8.chunks(context.n).collect::<Vec<_>>()[..],
+                &mut context
+                    .matrix_r_i32
+                    .chunks_mut(context.n)
+                    .collect::<Vec<_>>()[..],
+                Some(&context.timeout),
+            ))
         };
 
-        report_builder.add(ops);
+        report_builder.add(start.elapsed(), ops);
 
         if ops.is_ok() {
             for i in 0..context.n {
@@ -40,7 +48,9 @@ pub(crate) fn bench(features: &CpuFeatures, config: Config) -> Result<Report, Er
                     break 'main;
                 }
 
-                if context.matrix_r_i32[i * context.n] /* first in row */ == 0 && context.matrix_r_i32[(i + 1) * context.n - 1] /* last in row */ == 0 {
+                if context.matrix_r_i32[i * context.n] /* first in row */ == 0
+                    && context.matrix_r_i32[(i + 1) * context.n - 1] /* last in row */ == 0
+                {
                     return Err(Error::Empty);
                 }
             }
@@ -52,23 +62,29 @@ pub(crate) fn bench(features: &CpuFeatures, config: Config) -> Result<Report, Er
 
 pub(crate) fn bench_multithread(features: &CpuFeatures, config: Config) -> Result<Report, Error> {
     let mut context = Context::new(config);
-    let threadpool = rayon::ThreadPoolBuilder::new().num_threads(features.num_cores).build().unwrap();
-    let mut result_builder = ReportBuilder::new(context.timeout.duration);
-    
+    let threadpool = rayon::ThreadPoolBuilder::new()
+        .num_threads(features.num_cores)
+        .build()
+        .unwrap();
+    let mut result_builder = ReportBuilder::new();
+
+    let mut start: Instant;
     'main: while !context.timeout.reached() {
         context.reset_fmatrices();
 
-        let ops = black_box(
-            matrix::run_test_multithread(
-                &threadpool,
-                &context.matrix_a_f32.chunks(context.n).collect::<Vec<_>>()[..],
-                &context.matrix_b_f32.chunks(context.n).collect::<Vec<_>>()[..],
-                &mut context.matrix_r_f32.chunks_mut(context.n).collect::<Vec<_>>()[..],
-                Some(&context.timeout),
-            )
-        );
+        start = Instant::now();
+        let ops = black_box(matrix::run_test_multithread(
+            &threadpool,
+            &context.matrix_a_f32.chunks(context.n).collect::<Vec<_>>()[..],
+            &context.matrix_b_f32.chunks(context.n).collect::<Vec<_>>()[..],
+            &mut context
+                .matrix_r_f32
+                .chunks_mut(context.n)
+                .collect::<Vec<_>>()[..],
+            Some(&context.timeout),
+        ));
 
-        result_builder.add(ops);
+        result_builder.add(start.elapsed(), ops);
 
         if ops.is_ok() {
             for i in 0..context.n {
@@ -76,7 +92,9 @@ pub(crate) fn bench_multithread(features: &CpuFeatures, config: Config) -> Resul
                     break 'main;
                 }
 
-                if context.matrix_r_f32[i * context.n] /* first in row */ == 0. && context.matrix_r_f32[(i + 1) * context.n - 1] /* last in row */ == 0. {
+                if context.matrix_r_f32[i * context.n] /* first in row */ == 0.
+                    && context.matrix_r_f32[(i + 1) * context.n - 1] /* last in row */ == 0.
+                {
                     return Err(Error::Empty);
                 }
             }
@@ -97,7 +115,10 @@ extern "C" {
 }
 
 mod matrix {
-    use std::{ops::{Add, Mul}, time::{Instant, SystemTime, UNIX_EPOCH}};
+    use std::{
+        ops::{Add, Mul},
+        time::{Instant, SystemTime, UNIX_EPOCH},
+    };
 
     use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
@@ -110,8 +131,14 @@ mod matrix {
             let mid = $matrix.len() / 2;
 
             let (e1, e2) = $matrix.split_at(mid);
-            let (e11, e12) = e1.iter().map(|row| row.split_at(mid)).collect::<(Vec<_>, Vec<_>)>();
-            let (e21, e22) = e2.iter().map(|row| row.split_at(mid)).collect::<(Vec<_>, Vec<_>)>();
+            let (e11, e12) = e1
+                .iter()
+                .map(|row| row.split_at(mid))
+                .collect::<(Vec<_>, Vec<_>)>();
+            let (e21, e22) = e2
+                .iter()
+                .map(|row| row.split_at(mid))
+                .collect::<(Vec<_>, Vec<_>)>();
 
             (e11, e12, e21, e22)
         }};
@@ -119,8 +146,14 @@ mod matrix {
             let mid = $matrix.len() / 2;
 
             let (e1, e2) = $matrix.split_at_mut(mid);
-            let (e11, e12) = e1.iter_mut().map(|row| row.split_at_mut(mid)).collect::<(Vec<_>, Vec<_>)>();
-            let (e21, e22) = e2.iter_mut().map(|row| row.split_at_mut(mid)).collect::<(Vec<_>, Vec<_>)>();
+            let (e11, e12) = e1
+                .iter_mut()
+                .map(|row| row.split_at_mut(mid))
+                .collect::<(Vec<_>, Vec<_>)>();
+            let (e21, e22) = e2
+                .iter_mut()
+                .map(|row| row.split_at_mut(mid))
+                .collect::<(Vec<_>, Vec<_>)>();
 
             (e11, e12, e21, e22)
         }};
@@ -132,7 +165,7 @@ mod matrix {
         matrix_r: &mut [&mut [R]],
         timeout: Option<&Timeout>,
     ) -> Result<u64, u64>
-    where 
+    where
         T: Into<R> + Copy + Send + Sync,
         R: Add<Output = R> + Mul<Output = R> + Copy + Send + Sync,
     {
@@ -148,17 +181,26 @@ mod matrix {
     ) -> Result<u64, u64> {
         let timeout = match timeout {
             Some(timeout) => {
-                let timestamp = SystemTime::now() + (timeout.start - Instant::now()) + timeout.duration;
+                let timestamp =
+                    SystemTime::now() + (timeout.start - Instant::now()) + timeout.duration;
                 if let Ok(timestamp) = timestamp.duration_since(UNIX_EPOCH) {
                     u128::min(usize::MAX as u128, timestamp.as_millis()) as usize
                 } else {
                     0
                 }
-            },
+            }
             None => 0,
         };
 
-        let ops = unsafe { matrix_mul_i8mm(matrix_a.as_ptr(), matrix_b.as_ptr(), matrix_r.as_mut_ptr(), n, timeout) };
+        let ops = unsafe {
+            matrix_mul_i8mm(
+                matrix_a.as_ptr(),
+                matrix_b.as_ptr(),
+                matrix_r.as_mut_ptr(),
+                n,
+                timeout,
+            )
+        };
         if ops > 0 {
             Ok(ops as u64)
         } else {
@@ -173,13 +215,11 @@ mod matrix {
         matrix_r: &mut [&mut [R]],
         timeout: Option<&Timeout>,
     ) -> Result<u64, u64>
-    where 
+    where
         T: Into<R> + Copy + Send + Sync,
         R: Add<Output = R> + Mul<Output = R> + Copy + Send + Sync,
     {
-        threadpool.install(|| {
-            mul(matrix_a, matrix_b, matrix_r, timeout, Some(&threadpool))
-        })
+        threadpool.install(|| mul(matrix_a, matrix_b, matrix_r, timeout, Some(&threadpool)))
     }
 
     fn mul<T, R>(
@@ -189,7 +229,7 @@ mod matrix {
         timeout: Option<&Timeout>,
         threadpool: Option<&rayon::ThreadPool>,
     ) -> Result<u64, u64>
-    where 
+    where
         T: Into<R> + Copy + Send + Sync,
         R: Add<Output = R> + Mul<Output = R> + Copy + Send + Sync,
     {
@@ -214,25 +254,30 @@ mod matrix {
         ];
 
         if let Some(_) = threadpool {
-            ops = tuples.into_par_iter().map(|(r, a1, b1, a2, b2)| {
-                if timeout.reached() {
-                    return Err(0);
-                }
+            ops = tuples
+                .into_par_iter()
+                .map(|(r, a1, b1, a2, b2)| {
+                    if timeout.reached() {
+                        return Err(0);
+                    }
 
-                let mut ops = mul(a1, b1, r, timeout, threadpool)?;
-                ops = mul(a2, b2, r, timeout, threadpool).add(ops)?;
+                    let mut ops = mul(a1, b1, r, timeout, threadpool)?;
+                    ops = mul(a2, b2, r, timeout, threadpool).add(ops)?;
 
-                Ok(ops + ops)
-            }).reduce(|| Ok(0), |acc, next| {
-                match (acc, next) {
-                    (Ok(acc), Ok(next)) => Ok(acc + next),
-                    _ => Err(acc.value() + next.value()),
-                }
-            }).add(ops)?;
+                    Ok(ops)
+                })
+                .reduce(
+                    || Ok(0),
+                    |acc, next| match (acc, next) {
+                        (Ok(acc), Ok(next)) => Ok(acc + next),
+                        _ => Err(acc.value() + next.value()),
+                    },
+                )
+                .add(ops)?;
         } else {
             for (r, a1, b1, a2, b2) in tuples {
                 timeout.reached_with_err(ops)?;
-                
+
                 ops = mul(a1, b1, r, timeout, threadpool).add(ops)?;
                 ops = mul(a2, b2, r, timeout, threadpool).add(ops)?;
             }
@@ -252,7 +297,7 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self { 
+        Self {
             rng: Box::new(rand::thread_rng()),
             duration: Duration::from_secs(10),
             n: 4096,
@@ -283,11 +328,15 @@ struct ReportBuilder {
 }
 
 impl ReportBuilder {
-    fn new(duration: Duration) -> Self {
-        Self { duration, ops: 0 }
+    fn new() -> Self {
+        Self {
+            duration: Duration::ZERO,
+            ops: 0,
+        }
     }
 
-    fn add(&mut self, result: Result<u64, u64>) {
+    fn add(&mut self, duration: Duration, result: Result<u64, u64>) {
+        self.duration += duration;
         self.ops += result.value();
     }
 
@@ -295,7 +344,10 @@ impl ReportBuilder {
         Report {
             duration: self.duration,
             ops: self.ops,
-            tps: self.ops as f64 / self.duration.as_secs_f64(),
+            tps: match self.duration {
+                Duration::ZERO => 0.,
+                _ => self.ops as f64 / self.duration.as_secs_f64(),
+            },
         }
     }
 }
@@ -334,23 +386,13 @@ impl Context {
             closest_pow(config.n, 2)
         };
 
-        let mut matrix_a_i8 = Vec::with_capacity(n * n);
-        unsafe { matrix_a_i8.set_len(n * n) };
-        
-        let mut matrix_b_i8 = Vec::with_capacity(n * n);
-        unsafe { matrix_b_i8.set_len(n * n) };
+        let matrix_a_i8 = vec_with_len!(n * n);
+        let matrix_b_i8 = vec_with_len!(n * n);
+        let matrix_r_i32 = vec_with_len!(n * n);
 
-        let mut matrix_r_i32 = Vec::with_capacity(n * n);
-        unsafe { matrix_r_i32.set_len(n * n) };
-
-        let mut matrix_a_f32 = Vec::with_capacity(n * n);
-        unsafe { matrix_a_f32.set_len(n * n) };
-        
-        let mut matrix_b_f32 = Vec::with_capacity(n * n);
-        unsafe { matrix_b_f32.set_len(n * n) };
-
-        let mut matrix_r_f32 = Vec::with_capacity(n * n);
-        unsafe { matrix_r_f32.set_len(n * n) };
+        let matrix_a_f32 = vec_with_len!(n * n);
+        let matrix_b_f32 = vec_with_len!(n * n);
+        let matrix_r_f32 = vec_with_len!(n * n);
 
         let timeout = Timeout::new(config.duration);
 
@@ -368,11 +410,23 @@ impl Context {
     }
 
     fn reset_imatrices(&mut self) {
-        reset_matrices!(self.rng, self.matrix_a_i8, self.matrix_b_i8, self.matrix_r_i32, 0);
+        reset_matrices!(
+            self.rng,
+            self.matrix_a_i8,
+            self.matrix_b_i8,
+            self.matrix_r_i32,
+            0
+        );
     }
 
     fn reset_fmatrices(&mut self) {
-        reset_matrices!(self.rng, self.matrix_a_f32, self.matrix_b_f32, self.matrix_r_f32, 0.);
+        reset_matrices!(
+            self.rng,
+            self.matrix_a_f32,
+            self.matrix_b_f32,
+            self.matrix_r_f32,
+            0.
+        );
     }
 }
 
@@ -387,7 +441,11 @@ mod tests {
         let duration = Duration::from_millis(10000);
         let start = Instant::now();
         let result = bench(
-            &CpuFeatures { num_cores: 1, sve: false, i8mm: false },
+            &CpuFeatures {
+                num_cores: 1,
+                sve: false,
+                i8mm: false,
+            },
             Config {
                 duration,
                 n: 10,
@@ -410,7 +468,11 @@ mod tests {
         let duration = Duration::from_millis(10000);
         let start = Instant::now();
         let result = bench_multithread(
-            &CpuFeatures { num_cores: 8, sve: false, i8mm: false },
+            &CpuFeatures {
+                num_cores: 8,
+                sve: false,
+                i8mm: false,
+            },
             Config {
                 duration,
                 n: 10,
@@ -435,14 +497,16 @@ mod tests {
             &[70, 41, 38, 62],
             &[31, 19, 97, 39],
             &[66, 6, 40, 28],
-        ].map(|row| &row[..]);
+        ]
+        .map(|row| &row[..]);
 
         let matrix_b = [
             &[24, 12, 24, 29],
             &[83, 59, 32, 44],
             &[97, 38, 67, 13],
             &[98, 64, 68, 29],
-        ].map(|row| &row[..]);
+        ]
+        .map(|row| &row[..]);
 
         let matrix_r_expected = [
             [7531, 4425, 4708, 4565],
@@ -452,11 +516,13 @@ mod tests {
         ];
 
         let mut matrix_r = [[0i32; 4]; 4];
-        let mut matrix_r_slice: Vec<&mut [i32]> = matrix_r.iter_mut().map(|row| &mut row[..]).collect();
+        let mut matrix_r_slice: Vec<&mut [i32]> =
+            matrix_r.iter_mut().map(|row| &mut row[..]).collect();
 
         let result = matrix::run_test(&matrix_a, &matrix_b, &mut matrix_r_slice, None);
 
         assert!(result.is_ok(), "expected success");
+        assert_eq!(64, result.unwrap());
         assert_eq!(matrix_r_expected, matrix_r);
     }
 
@@ -467,14 +533,16 @@ mod tests {
             &[70, 41, 38, 62],
             &[31, 19, 97, 39],
             &[66, 6, 40, 28],
-        ].map(|row| &row[..]);
+        ]
+        .map(|row| &row[..]);
 
         let matrix_b = [
             &[24, 12, 24, 29],
             &[83, 59, 32, 44],
             &[97, 38, 67, 13],
             &[98, 64, 68, 29],
-        ].map(|row| &row[..]);
+        ]
+        .map(|row| &row[..]);
 
         let matrix_r_expected = [
             [7531, 4425, 4708, 4565],
@@ -484,12 +552,23 @@ mod tests {
         ];
 
         let mut matrix_r = [[0i32; 4]; 4];
-        let mut matrix_r_slice: Vec<&mut [i32]> = matrix_r.iter_mut().map(|row| &mut row[..]).collect();
+        let mut matrix_r_slice: Vec<&mut [i32]> =
+            matrix_r.iter_mut().map(|row| &mut row[..]).collect();
 
-        let threadpool = rayon::ThreadPoolBuilder::new().num_threads(2).build().unwrap();
-        let result = matrix::run_test_multithread(&threadpool, &matrix_a, &matrix_b, &mut matrix_r_slice, None);
+        let threadpool = rayon::ThreadPoolBuilder::new()
+            .num_threads(2)
+            .build()
+            .unwrap();
+        let result = matrix::run_test_multithread(
+            &threadpool,
+            &matrix_a,
+            &matrix_b,
+            &mut matrix_r_slice,
+            None,
+        );
 
         assert!(result.is_ok(), "expected success");
+        assert_eq!(64, result.unwrap());
         assert_eq!(matrix_r_expected, matrix_r);
     }
 
