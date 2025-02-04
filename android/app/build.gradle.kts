@@ -3,7 +3,14 @@ import org.gradle.kotlin.dsl.support.listFilesOrdered
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.maven.publish)
     alias(libs.plugins.rust.gradle)
+}
+
+object Library {
+    const val groupId = "com.acurast.bench"
+    const val artifactId = "acubench"
+    const val version = "1.0.0-beta01"
 }
 
 android {
@@ -13,7 +20,7 @@ android {
 
     defaultConfig {
         minSdk = 24
-        version = "1.0"
+        version = Library.version
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -70,6 +77,20 @@ cargo {
     targetIncludes = arrayOf("")
     profile = "release"
     prebuiltToolchains = true
+}
+
+publishing {
+    publications {
+        register<MavenPublication>("maven") {
+            groupId = Library.groupId
+            artifactId = Library.artifactId
+            version = Library.version
+
+            afterEvaluate {
+                from(components["release"])
+            }
+        }
+    }
 }
 
 dependencies {
