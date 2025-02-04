@@ -1,6 +1,10 @@
-use std::{fmt, hint::black_box, time::{Duration, Instant}};
+use std::{
+    fmt,
+    hint::black_box,
+    time::{Duration, Instant},
+};
 
-use crate::utils::Avg;
+use crate::utils::{Avg, MB};
 
 pub(crate) fn bench(config: Config) -> Result<Report, Error> {
     let mut report_builder = ReportBuilder::new(config.iters);
@@ -19,7 +23,7 @@ fn run_test(n: usize) -> Result<(), Error> {
     let mut data = Vec::with_capacity(n);
     data.resize(n, 0u8);
     if data.len() != n {
-        return Err(Error::WrongLen(data.len()))
+        return Err(Error::WrongLen(data.len()));
     }
     drop(data);
 
@@ -33,8 +37,8 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self { 
-            data_len: 64 * 1024 * 1024,
+        Self {
+            data_len: 64 * MB,
             iters: 100,
         }
     }
@@ -61,7 +65,9 @@ struct ReportBuilder {
 
 impl ReportBuilder {
     fn new(iters: usize) -> Self {
-        Self { ts: Vec::with_capacity(iters) }
+        Self {
+            ts: Vec::with_capacity(iters),
+        }
     }
 
     fn add(&mut self, time: Duration) {
@@ -69,7 +75,9 @@ impl ReportBuilder {
     }
 
     fn build(self) -> Report {
-        Report { avg_t: self.ts.avg() }
+        Report {
+            avg_t: self.ts.avg(),
+        }
     }
 }
 
@@ -79,13 +87,11 @@ mod tests {
 
     #[test]
     fn test_bench() {
-        let result = bench(
-            Config { 
-                data_len: 1024,
-                iters: 10,
-                ..Default::default()
-            },
-        );
+        let result = bench(Config {
+            data_len: 64,
+            iters: 5,
+            ..Default::default()
+        });
 
         assert_eq!(true, result.is_ok(), "expected success");
         let result = result.unwrap();

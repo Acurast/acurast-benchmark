@@ -1,34 +1,51 @@
-use std::{fmt, hint::black_box, time::Duration};
+use std::{
+    fmt,
+    hint::black_box,
+    time::{Duration, Instant},
+};
 
 use rand::distributions::DistString;
 
-use crate::{utils::{Expirable, GetValue, Timeout}, CpuFeatures};
+use crate::{
+    utils::{Expirable, GetValue, Timeout},
+    CpuFeatures,
+};
 
 pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, Error> {
     let mut context = Context::new(config);
-    let mut report_builder = ReportBuilder::new(context.timeout.duration);
+    let mut report_builder = ReportBuilder::new();
 
+    let mut start: Instant;
     'main: while !context.timeout.reached() {
         for i in 0..context.data.len() {
             if context.timeout.reached() {
                 break 'main;
             }
 
-            context.data[i] = rand::distributions::Alphanumeric.sample_string(&mut context.rng, context.item_len);
+            context.data[i] =
+                rand::distributions::Alphanumeric.sample_string(&mut context.rng, context.item_len);
         }
 
-        let ops = black_box(
-            merge::run_test(
-                &mut context.data[..],
-                &mut context.temp[..],
-                Some(&context.timeout),
-            )
-        );
-        if ops.is_ok() && !context.data.is_sorted() {
-            return Err(Error::Unsorted(context.data))
-        }
+        start = Instant::now();
+        let ops = black_box(merge::run_test(
+            &mut context.data[..],
+            &mut context.temp[..],
+            Some(&context.timeout),
+        ));
 
-        report_builder.add(ops);
+        report_builder.add(start.elapsed(), ops);
+
+        if ops.is_ok() {
+            for i in 0..context.data.len() - 1 {
+                if context.timeout.reached() {
+                    break 'main;
+                }
+
+                if context.data[i] > context.data[i + 1] {
+                    return Err(Error::Unsorted(context.data));
+                }
+            }
+        }
     }
 
     Ok(report_builder.build())
@@ -36,31 +53,44 @@ pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, E
 
 pub(crate) fn bench_multithread(features: &CpuFeatures, config: Config) -> Result<Report, Error> {
     let mut context = Context::new(config);
-    let threadpool = rayon::ThreadPoolBuilder::new().num_threads(features.num_cores).build().unwrap();
-    let mut result_builder = ReportBuilder::new(context.timeout.duration);
+    let threadpool = rayon::ThreadPoolBuilder::new()
+        .num_threads(features.num_cores)
+        .build()
+        .unwrap();
+    let mut result_builder = ReportBuilder::new();
 
+    let mut start: Instant;
     'main: while !context.timeout.reached() {
         for i in 0..context.data.len() {
             if context.timeout.reached() {
                 break 'main;
             }
 
-            context.data[i] = rand::distributions::Alphanumeric.sample_string(&mut context.rng, context.item_len);
+            context.data[i] =
+                rand::distributions::Alphanumeric.sample_string(&mut context.rng, context.item_len);
         }
 
-        let ops = black_box(
-            merge::run_test_multithread(
-                &threadpool,
-                &mut context.data[..],
-                &mut context.temp[..],
-                Some(&context.timeout),
-            )
-        );
-        if ops.is_ok() && !context.data.is_sorted() {
-            return Err(Error::Unsorted(context.data))
-        }
+        start = Instant::now();
+        let ops = black_box(merge::run_test_multithread(
+            &threadpool,
+            &mut context.data[..],
+            &mut context.temp[..],
+            Some(&context.timeout),
+        ));
 
-        result_builder.add(ops);
+        result_builder.add(start.elapsed(), ops);
+
+        if ops.is_ok() {
+            for i in 0..context.data.len() - 1 {
+                if context.timeout.reached() {
+                    break 'main;
+                }
+
+                if context.data[i] > context.data[i + 1] {
+                    return Err(Error::Unsorted(context.data));
+                }
+            }
+        }
     }
 
     Ok(result_builder.build())
@@ -71,7 +101,11 @@ mod merge {
 
     use super::*;
 
-    pub(super) fn run_test<T>(data: &mut [T], temp: &mut [T], timeout: Option<&Timeout>) -> Result<u64, u64> 
+    pub(super) fn run_test<T>(
+        data: &mut [T],
+        temp: &mut [T],
+        timeout: Option<&Timeout>,
+    ) -> Result<u64, u64>
     where
         T: Clone + PartialOrd + Send,
     {
@@ -83,13 +117,11 @@ mod merge {
         data: &mut [T],
         temp: &mut [T],
         timeout: Option<&Timeout>,
-    ) -> Result<u64, u64> 
+    ) -> Result<u64, u64>
     where
         T: Clone + PartialOrd + Send,
     {
-        threadpool.install(|| {
-            sort(data, temp, timeout, Some(&threadpool))
-        })
+        threadpool.install(|| sort(data, temp, timeout, Some(&threadpool)))
     }
 
     fn sort<T>(
@@ -108,7 +140,7 @@ mod merge {
             ops += 1;
             return Ok(ops);
         }
-        
+
         let mid = data.len() / 2;
         let (data_left, data_right) = data.split_at_mut(mid);
         let (temp_left, temp_right) = temp.split_at_mut(mid);
@@ -125,7 +157,7 @@ mod merge {
             ops = sort(data_left, temp_left, timeout, threadpool).add(ops)?;
             ops = sort(data_right, temp_right, timeout, threadpool).add(ops)?;
         }
-        
+
         for i in 0..data_left.len() {
             timeout.reached_with_err(ops)?;
 
@@ -138,12 +170,7 @@ mod merge {
             temp_right[i] = data_right[i].clone();
         }
 
-        ops = merge(
-            data,
-            temp_left,
-            temp_right,
-            timeout,
-        ).add(ops)?;
+        ops = merge(data, temp_left, temp_right, timeout).add(ops)?;
 
         Ok(ops)
     }
@@ -205,7 +232,7 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self { 
+        Self {
             rng: Box::new(rand::thread_rng()),
             duration: Duration::from_secs(10),
             item_len: 25,
@@ -237,11 +264,15 @@ struct ReportBuilder {
 }
 
 impl ReportBuilder {
-    fn new(duration: Duration) -> Self {
-        Self { duration, ops: 0 }
+    fn new() -> Self {
+        Self {
+            duration: Duration::ZERO,
+            ops: 0,
+        }
     }
 
-    fn add(&mut self, result: Result<u64, u64>) {
+    fn add(&mut self, duration: Duration, result: Result<u64, u64>) {
+        self.duration += duration;
         self.ops += result.value();
     }
 
@@ -249,7 +280,10 @@ impl ReportBuilder {
         Report {
             duration: self.duration,
             ops: self.ops,
-            tps: self.ops as f64 / self.duration.as_secs_f64(),
+            tps: match self.duration {
+                Duration::ZERO => 0.,
+                _ => self.ops as f64 / self.duration.as_secs_f64(),
+            },
         }
     }
 }
@@ -292,10 +326,14 @@ mod tests {
         let duration = Duration::from_millis(1000);
         let start = Instant::now();
         let result = bench(
-            &CpuFeatures { num_cores: 1, sve: false, i8mm: false },
+            &CpuFeatures {
+                num_cores: 1,
+                sve: false,
+                i8mm: false,
+            },
             Config {
                 duration,
-                data_len: 100,
+                data_len: 100_000,
                 ..Default::default()
             },
         );
@@ -305,7 +343,7 @@ mod tests {
         let result = result.unwrap();
         assert!(result.ops > 0);
         assert!(result.tps > 0.);
-        assert!(elapsed >= duration && elapsed <= duration + Duration::from_millis(100));
+        assert!(elapsed >= duration && elapsed <= duration + Duration::from_millis(200));
 
         println!("{result}");
     }
@@ -315,10 +353,14 @@ mod tests {
         let duration = Duration::from_millis(1000);
         let start = Instant::now();
         let result = bench_multithread(
-            &CpuFeatures { num_cores: 8, sve: false, i8mm: false },
+            &CpuFeatures {
+                num_cores: 8,
+                sve: false,
+                i8mm: false,
+            },
             Config {
                 duration,
-                data_len: 100,
+                data_len: 100_000,
                 ..Default::default()
             },
         );
@@ -327,8 +369,8 @@ mod tests {
         assert!(result.is_ok(), "expected success");
         let result = result.unwrap();
         assert!(result.ops > 0);
-        assert!(result.tps > 0f64);
-        assert!(elapsed >= duration && elapsed <= duration + Duration::from_millis(100));
+        assert!(result.tps > 0.);
+        assert!(elapsed >= duration && elapsed <= duration + Duration::from_millis(200));
 
         println!("{result}");
     }
@@ -342,6 +384,7 @@ mod tests {
         let result = merge::run_test(&mut data, &mut temp, None);
 
         assert!(result.is_ok(), "expected success");
+        assert_eq!(74, result.unwrap());
         assert_eq!(expected, data);
     }
 
@@ -351,10 +394,14 @@ mod tests {
         let mut temp = [0i32; 15];
         let expected = [4, 7, 12, 19, 27, 32, 44, 46, 72, 79, 81, 86, 99, 100, 100];
 
-        let threadpool = rayon::ThreadPoolBuilder::new().num_threads(2).build().unwrap();
+        let threadpool = rayon::ThreadPoolBuilder::new()
+            .num_threads(2)
+            .build()
+            .unwrap();
         let result = merge::run_test_multithread(&threadpool, &mut data, &mut temp, None);
 
         assert!(result.is_ok(), "expected success");
+        assert_eq!(74, result.unwrap());
         assert_eq!(expected, data);
     }
 }

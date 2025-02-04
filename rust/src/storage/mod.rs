@@ -1,5 +1,7 @@
 use core::fmt;
 
+use crate::utils::GB;
+
 pub(crate) mod access;
 
 pub struct Config {
@@ -8,7 +10,7 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self { 
+        Self {
             access: Default::default(),
         }
     }
@@ -23,7 +25,11 @@ impl fmt::Display for Report {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let i = "::::";
         writeln!(f, "Storage")?;
-        writeln!(f, "{i} available storage {:.2} GB", (self.avail_storage as f64) / 1024. / 1024. / 1024.)?;
+        writeln!(
+            f,
+            "{i} available storage {:.2} GB",
+            (self.avail_storage as f64) / GB as f64,
+        )?;
         write!(f, "{i} {}", self.access)?;
 
         Ok(())

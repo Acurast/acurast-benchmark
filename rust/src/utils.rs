@@ -1,4 +1,23 @@
-use std::{ops::Add, slice, time::{Duration, Instant}};
+use std::{
+    ops::Add,
+    slice,
+    time::{Duration, Instant},
+};
+
+macro_rules! vec_with_len {
+    ($n: expr) => {{
+        let mut vec = Vec::with_capacity($n);
+        unsafe { vec.set_len($n) };
+
+        vec
+    }};
+}
+
+pub(crate) use vec_with_len;
+
+pub(crate) const KB: usize = 1024;
+pub(crate) const MB: usize = KB * KB;
+pub(crate) const GB: usize = KB * MB;
 
 pub(crate) fn slice_from_ptr_mut<'a, T>(ptr: *mut T, from: usize, until: usize) -> &'a mut [T] {
     unsafe { slice::from_raw_parts_mut(ptr.add(from), until - from) }
@@ -43,7 +62,7 @@ pub(crate) trait GetValue {
     fn value(&self) -> &Self::Value;
 }
 
-impl <T> GetValue for Result<T, T> {
+impl<T> GetValue for Result<T, T> {
     type Value = T;
 
     fn value(&self) -> &Self::Value {
@@ -60,8 +79,8 @@ pub(crate) trait AddValue {
     fn add(self, value: Self::Value) -> Self;
 }
 
-impl <T> AddValue for Result<T, T>
-where 
+impl<T> AddValue for Result<T, T>
+where
     T: Add<Output = T>,
 {
     type Value = T;
@@ -70,7 +89,7 @@ where
         match self {
             Ok(v) => Ok(v + value),
             Err(v) => Err(v + value),
-        }    
+        }
     }
 }
 
@@ -87,7 +106,7 @@ impl Avg for Vec<Duration> {
         if self.len() == 0 {
             return Duration::ZERO;
         }
-        
+
         self.iter().sum::<Duration>() / (self.len() as u32)
     }
 }
@@ -111,7 +130,10 @@ pub(crate) trait Expirable {
 
 impl Timeout {
     pub(crate) fn new(duration: Duration) -> Self {
-        Self { start: Instant::now(), duration }
+        Self {
+            start: Instant::now(),
+            duration,
+        }
     }
 }
 
@@ -138,9 +160,15 @@ mod tests {
     fn test_slice_from_ptr_mut() {
         let mut data = Vec::from_iter(0..32u8);
         let slice = data.as_mut_slice();
-        
-        assert_eq!(&[0, 1, 2, 3, 4, 5], slice_from_ptr_mut(slice.as_mut_ptr(), 0, 6));
-        assert_eq!(&[14, 15, 16], slice_from_ptr_mut(slice.as_mut_ptr(), 14, 17));
+
+        assert_eq!(
+            &[0, 1, 2, 3, 4, 5],
+            slice_from_ptr_mut(slice.as_mut_ptr(), 0, 6)
+        );
+        assert_eq!(
+            &[14, 15, 16],
+            slice_from_ptr_mut(slice.as_mut_ptr(), 14, 17)
+        );
         assert_eq!(&[30, 31], slice_from_ptr_mut(slice.as_mut_ptr(), 30, 32));
     }
 
