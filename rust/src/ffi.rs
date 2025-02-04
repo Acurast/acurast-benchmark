@@ -1,6 +1,6 @@
 use std::{ptr::null, time::Duration};
 
-use crate::{cpu, arm::{Auxval, AuxvalMask}, Bench};
+use crate::{arm::{Auxval, AuxvalMask}, cpu, ram, Bench};
 
 #[repr(C)]
 pub struct TypedU64 {
@@ -10,12 +10,13 @@ pub struct TypedU64 {
 
 #[no_mangle]
 pub extern "C" fn new_bench(
+    total_ram: u64,
     hwcap: u64,
     hwcap2: u64,
     sve_mask: TypedU64,
     i8mm_mask: TypedU64,
 ) -> *mut Bench {
-    let bench = Bench::with_auxval(Auxval {
+    let bench = Bench::with_auxval(total_ram, Auxval {
         hwcap,
         hwcap2,
         sve_mask: sve_mask.into(),
@@ -68,12 +69,53 @@ pub extern "C" fn bench_cpu_multithread(bench: *mut Bench, config: CpuConfig) ->
 pub extern "C" fn drop_cpu_report(report: *const CpuReport) {
     unsafe {
         let report = Box::from_raw(report as *mut CpuReport);
-        if !report.err.is_null() {
-            let err = String::from_raw_parts(report.err as *mut u8, report.err_len, report.err_len);
-            drop(err)
-        }
+        drop_string(report.err, report.err_len);
 
         drop(report);
+    }
+}
+
+#[repr(C)]
+pub struct RamConfig {
+    alloc_data_len: usize,
+    access_data_len: usize,
+    iters: usize,
+}
+
+#[repr(C)]
+pub struct RamReport {
+    total_mem: u64,
+    alloc_avg_t: f64,
+    access_seq_avg_t: f64,
+    access_rand_avg_t: f64,
+    access_con_avg_t: f64,
+
+    err: *const u8,
+    err_len: usize,
+}
+
+#[no_mangle]
+pub extern "C" fn bench_ram(bench: *mut Bench, config: RamConfig) -> *const RamReport {
+    let bench = unsafe { &mut *bench };
+    let report = bench.ram(config.into());
+
+    Box::into_raw(Box::new(report.into()))
+}
+
+#[no_mangle]
+pub extern "C" fn drop_ram_report(report: *const RamReport) {
+    unsafe {
+        let report = Box::from_raw(report as *mut RamReport);
+        drop_string(report.err, report.err_len);
+
+        drop(report);
+    }
+}
+
+unsafe fn drop_string(ptr: *const u8, len: usize) {
+    if !ptr.is_null() {
+        let str = String::from_raw_parts(ptr as *mut u8, len, len);
+        drop(str)
     }
 }
 
@@ -127,6 +169,55 @@ impl From<Result<cpu::Report, cpu::Error>> for CpuReport {
                     crypto_tps: 0.,
                     math_tps: 0.,
                     sort_tps: 0.,
+                    err: err.as_ptr(),
+                    err_len: err.len(),
+                };
+
+                std::mem::forget(err);
+
+                report
+            },
+        }
+    }
+}
+
+impl From<RamConfig> for ram::Config {
+    fn from(value: RamConfig) -> Self {
+        Self {
+            alloc: ram::alloc::Config {
+                data_len: value.alloc_data_len,
+                iters: value.iters,
+                ..Default::default()
+            },
+            access: ram::access::Config {
+                data_len: value.access_data_len,
+                iters: value.iters,
+                ..Default::default()
+            },
+        }
+    }
+}
+
+impl From<Result<ram::Report, ram::Error>> for RamReport {
+    fn from(value: Result<ram::Report, ram::Error>) -> Self {
+        match value {
+            Ok(report) => Self {
+                total_mem: report.total_mem,
+                alloc_avg_t: report.alloc.avg_t.as_secs_f64(),
+                access_seq_avg_t: report.access.seq_avg_t.as_secs_f64(),
+                access_rand_avg_t: report.access.rand_avg_t.as_secs_f64(),
+                access_con_avg_t: report.access.con_avg_t.as_secs_f64(),
+                err: null(),
+                err_len: 0,
+            },
+            Err(err) => {
+                let err = format!("{err:?}");
+                let report = Self {
+                    total_mem: 0,
+                    alloc_avg_t: 0.,
+                    access_seq_avg_t: 0.,
+                    access_rand_avg_t: 0.,
+                    access_con_avg_t: 0.,
                     err: err.as_ptr(),
                     err_len: err.len(),
                 };

@@ -85,7 +85,7 @@ pub(crate) fn bench_multithread(features: &CpuFeatures, config: Config) -> Resul
 }
 
 mod encryption {
-    use crate::utils::{slice_from_ptr_mut, GetValue};
+    use crate::utils::{slice_from_ptr_mut, AddValue, GetValue};
 
     use super::*;
 
@@ -101,7 +101,7 @@ mod encryption {
             timeout.reached_with_err(bytes_count)?;
 
             let (data, enc_output, dec_output) = block(data, enc_output.as_mut_ptr(), dec_output.as_mut_ptr(), i);
-            bytes_count += encrypt_decrypt_block(cipher, data, enc_output, dec_output, timeout).value();
+            bytes_count = encrypt_decrypt_block(cipher, data, enc_output, dec_output, timeout).add(bytes_count)?;
         }
 
         Ok(bytes_count)
@@ -237,19 +237,9 @@ pub struct Report {
     pub tps: f64,
 }
 
-impl Report {
-    fn new(builder: ReportBuilder) -> Self {
-        Self { 
-            duration: builder.duration,
-            bytes_count: builder.bytes_count,
-            tps: builder.bytes_count as f64 / builder.duration.as_secs_f64(),
-        }
-    }
-}
-
 impl fmt::Display for Report {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "crypto {} bytes/s", self.tps.floor())
+        write!(f, "crypto ... {} bytes/s", self.tps.floor())
     }
 }
 
@@ -268,7 +258,11 @@ impl ReportBuilder {
     }
 
     fn build(self) -> Report {
-        Report::new(self)
+        Report { 
+            duration: self.duration,
+            bytes_count: self.bytes_count,
+            tps: self.bytes_count as f64 / self.duration.as_secs_f64(),
+        }
     }
 }
 
@@ -346,15 +340,16 @@ mod tests {
             &CpuFeatures { num_cores: 1, sve: false, i8mm: false },
             Config {
                 duration,
+                data_len: 1024,
                 ..Default::default()
             },
         );
         let elapsed = start.elapsed();
 
-        assert_eq!(true, result.is_ok(), "expected success");
+        assert!(result.is_ok(), "expected success");
         let result = result.unwrap();
         assert!(result.bytes_count > 0);
-        assert!(result.tps > 0f64);
+        assert!(result.tps > 0.);
         assert!(elapsed >= duration && elapsed <= duration + Duration::from_millis(100));
 
         println!("{result}");
@@ -368,15 +363,16 @@ mod tests {
             &CpuFeatures { num_cores: 8, sve: false, i8mm: false },
             Config {
                 duration,
+                data_len: 1024,
                 ..Default::default()
             },
         );
         let elapsed = start.elapsed();
 
-        assert_eq!(true, result.is_ok(), "expected success");
+        assert!(result.is_ok(), "expected success");
         let result = result.unwrap();
         assert!(result.bytes_count > 0);
-        assert!(result.tps > 0f64);
+        assert!(result.tps > 0.);
         assert!(elapsed >= duration && elapsed <= duration + Duration::from_millis(100));
 
         println!("{result}");
@@ -417,7 +413,7 @@ mod tests {
         let threadpool = rayon::ThreadPoolBuilder::new().num_threads(2).build().unwrap();
         let result = encryption::run_test_multithread(&threadpool, &cipher, &data, &mut enc_output, &mut dec_output, None);
 
-        assert_eq!(true, result.is_ok(), "expected success");
+        assert!(result.is_ok(), "expected success");
         assert_eq!(256, result.unwrap());
         assert_eq!(enc_output, enc_expected);
         assert_eq!(dec_output, data);
@@ -434,7 +430,7 @@ mod tests {
 
         let result = hash::run_test(&mut hasher, &data, &mut hash_output, None);
 
-        assert_eq!(true, result.is_ok(), "expected success");
+        assert!(result.is_ok(), "expected success");
         assert_eq!(HASH_SIZE as u64, result.unwrap());
         assert_eq!(hash_output, hash_expected)
     }

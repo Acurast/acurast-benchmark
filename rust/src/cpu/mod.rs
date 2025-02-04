@@ -1,3 +1,5 @@
+use std::fmt;
+
 pub(crate) mod crypto;
 pub(crate) mod math;
 pub(crate) mod sort;
@@ -22,6 +24,18 @@ pub struct Report {
     pub crypto: crypto::Report,
     pub math: math::Report,
     pub sort: sort::Report,
+}
+
+impl fmt::Display for Report {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let i = "::::";
+        writeln!(f, "CPU")?;
+        writeln!(f, "{i} {}", self.crypto)?;
+        writeln!(f, "{i} {}", self.math)?;
+        write!(f, "{i} {}", self.sort)?;
+
+        Ok(())
+    }
 }
 
 #[derive(Debug)]

@@ -67,6 +67,8 @@ pub(crate) fn bench_multithread(features: &CpuFeatures, config: Config) -> Resul
 }
 
 mod merge {
+    use crate::utils::AddValue;
+
     use super::*;
 
     pub(super) fn run_test<T>(data: &mut [T], temp: &mut [T], timeout: Option<&Timeout>) -> Result<u64, u64> 
@@ -117,11 +119,11 @@ mod merge {
                 || sort(data_right, temp_right, timeout, threadpool),
             );
 
-            ops += left_ops.map_err(|o| ops + o)?;
-            ops += right_ops.map_err(|o| ops + o)?;
+            ops = left_ops.add(ops)?;
+            ops = right_ops.add(ops)?;
         } else {
-            ops += sort(data_left, temp_left, timeout, threadpool).map_err(|o| ops + o)?;
-            ops += sort(data_right, temp_right, timeout, threadpool).map_err(|o| ops + o)?;
+            ops = sort(data_left, temp_left, timeout, threadpool).add(ops)?;
+            ops = sort(data_right, temp_right, timeout, threadpool).add(ops)?;
         }
         
         for i in 0..data_left.len() {
@@ -136,12 +138,12 @@ mod merge {
             temp_right[i] = data_right[i].clone();
         }
 
-        ops += merge(
+        ops = merge(
             data,
             temp_left,
             temp_right,
             timeout,
-        ).map_err(|o| ops + o)?;
+        ).add(ops)?;
 
         Ok(ops)
     }
@@ -223,19 +225,9 @@ pub struct Report {
     pub tps: f64,
 }
 
-impl Report {
-    fn new(builder: ReportBuilder) -> Self {
-        Self {
-            duration: builder.duration,
-            ops: builder.ops,
-            tps: builder.ops as f64 / builder.duration.as_secs_f64(),
-        }
-    }
-}
-
 impl fmt::Display for Report {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "sort {} ops/s", self.tps.floor())
+        write!(f, "sort ... {} ops/s", self.tps.floor())
     }
 }
 
@@ -254,7 +246,11 @@ impl ReportBuilder {
     }
 
     fn build(self) -> Report {
-        Report::new(self)
+        Report {
+            duration: self.duration,
+            ops: self.ops,
+            tps: self.ops as f64 / self.duration.as_secs_f64(),
+        }
     }
 }
 
@@ -270,11 +266,8 @@ struct Context {
 
 impl Context {
     fn new(config: Config) -> Self {
-        let mut data = Vec::with_capacity(config.data_len);
-        unsafe { data.set_len(config.data_len) };
-
-        let mut temp = Vec::with_capacity(config.data_len);
-        unsafe { temp.set_len(config.data_len) };
+        let data = vec![String::new(); config.data_len];
+        let temp = vec![String::new(); config.data_len];
 
         let timeout = Timeout::new(config.duration);
 
@@ -302,16 +295,16 @@ mod tests {
             &CpuFeatures { num_cores: 1, sve: false, i8mm: false },
             Config {
                 duration,
-                data_len: 10000,
+                data_len: 100,
                 ..Default::default()
             },
         );
         let elapsed = start.elapsed();
 
-        assert_eq!(true, result.is_ok(), "expected success");
+        assert!(result.is_ok(), "expected success");
         let result = result.unwrap();
         assert!(result.ops > 0);
-        assert!(result.tps > 0f64);
+        assert!(result.tps > 0.);
         assert!(elapsed >= duration && elapsed <= duration + Duration::from_millis(100));
 
         println!("{result}");
@@ -325,13 +318,13 @@ mod tests {
             &CpuFeatures { num_cores: 8, sve: false, i8mm: false },
             Config {
                 duration,
-                data_len: 10000,
+                data_len: 100,
                 ..Default::default()
             },
         );
         let elapsed = start.elapsed();
 
-        assert_eq!(true, result.is_ok(), "expected success");
+        assert!(result.is_ok(), "expected success");
         let result = result.unwrap();
         assert!(result.ops > 0);
         assert!(result.tps > 0f64);
@@ -348,7 +341,7 @@ mod tests {
 
         let result = merge::run_test(&mut data, &mut temp, None);
 
-        assert_eq!(true, result.is_ok(), "expected success");
+        assert!(result.is_ok(), "expected success");
         assert_eq!(expected, data);
     }
 
@@ -361,7 +354,7 @@ mod tests {
         let threadpool = rayon::ThreadPoolBuilder::new().num_threads(2).build().unwrap();
         let result = merge::run_test_multithread(&threadpool, &mut data, &mut temp, None);
 
-        assert_eq!(true, result.is_ok(), "expected success");
+        assert!(result.is_ok(), "expected success");
         assert_eq!(expected, data);
     }
 }
