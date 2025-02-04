@@ -1,4 +1,4 @@
-use std::{slice, time::{Duration, Instant}};
+use std::{ops::Add, slice, time::{Duration, Instant}};
 
 pub(crate) fn slice_from_ptr_mut<'a, T>(ptr: *mut T, from: usize, until: usize) -> &'a mut [T] {
     unsafe { slice::from_raw_parts_mut(ptr.add(from), until - from) }
@@ -51,6 +51,40 @@ impl <T> GetValue for Result<T, T> {
             Ok(v) => v,
             Err(v) => v,
         }
+    }
+}
+
+pub(crate) trait AddValue {
+    type Value;
+
+    fn add(self, value: Self::Value) -> Self;
+}
+
+impl <T> AddValue for Result<T, T>
+where 
+    T: Add<Output = T>,
+{
+    type Value = T;
+
+    fn add(self, value: Self::Value) -> Self {
+        match self {
+            Ok(v) => Ok(v + value),
+            Err(v) => Err(v + value),
+        }    
+    }
+}
+
+pub(crate) trait Avg {
+    type T;
+
+    fn avg(&self) -> Self::T;
+}
+
+impl Avg for Vec<Duration> {
+    type T = Duration;
+
+    fn avg(&self) -> Self::T {
+        self.iter().sum::<Duration>() / (self.len() as u32)
     }
 }
 

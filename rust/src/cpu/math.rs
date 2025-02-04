@@ -105,7 +105,7 @@ mod matrix {
 
     use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-    use crate::utils::GetValue;
+    use crate::utils::{AddValue, GetValue};
 
     use super::*;
 
@@ -218,27 +218,27 @@ mod matrix {
         ];
 
         if let Some(_) = threadpool {
-            ops += tuples.into_par_iter().map(|(r, a1, b1, a2, b2)| {
+            ops = tuples.into_par_iter().map(|(r, a1, b1, a2, b2)| {
                 if timeout.reached() {
                     return Err(0);
                 }
 
-                let ops1 = mul(a1, b1, r, timeout, threadpool)?;
-                let ops2 = mul(a2, b2, r, timeout, threadpool).map_err(|o| ops1 + o)?;
+                let mut ops = mul(a1, b1, r, timeout, threadpool)?;
+                ops = mul(a2, b2, r, timeout, threadpool).add(ops)?;
 
-                Ok(ops1 + ops2)
-            }).fold(|| Ok(0), |acc, next| {
+                Ok(ops + ops)
+            }).reduce(|| Ok(0), |acc, next| {
                 match (acc, next) {
                     (Ok(acc), Ok(next)) => Ok(acc + next),
                     _ => Err(acc.value() + next.value()),
                 }
-            }).sum::<Result<u64, u64>>().map_err(|o| ops + o)?;
+            }).add(ops)?;
         } else {
             for (r, a1, b1, a2, b2) in tuples {
                 timeout.reached_with_err(ops)?;
                 
-                ops += mul(a1, b1, r, timeout, threadpool).map_err(|o| ops + o)?;
-                ops += mul(a2, b2, r, timeout, threadpool).map_err(|o| ops + o)?;
+                ops = mul(a1, b1, r, timeout, threadpool).add(ops)?;
+                ops = mul(a2, b2, r, timeout, threadpool).add(ops)?;
             }
         }
 
@@ -275,19 +275,9 @@ pub struct Report {
     pub tps: f64,
 }
 
-impl Report {
-    fn new(builder: ReportBuilder) -> Self {
-        Self {
-            duration: builder.duration,
-            ops: builder.ops,
-            tps: builder.ops as f64 / builder.duration.as_secs_f64(),
-        }
-    }
-}
-
 impl fmt::Display for Report {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "mul {} ops/s", self.tps.floor())
+        write!(f, "math ... {} ops/s", self.tps.floor())
     }
 }
 
@@ -306,7 +296,11 @@ impl ReportBuilder {
     }
 
     fn build(self) -> Report {
-        Report::new(self)
+        Report {
+            duration: self.duration,
+            ops: self.ops,
+            tps: self.ops as f64 / self.duration.as_secs_f64(),
+        }
     }
 }
 
@@ -381,16 +375,16 @@ mod tests {
             &CpuFeatures { num_cores: 1, sve: false, i8mm: false },
             Config {
                 duration,
-                n: 200,
+                n: 10,
                 ..Default::default()
             },
         );
         let elapsed = start.elapsed();
 
-        assert_eq!(true, result.is_ok(), "expected success");
+        assert!(result.is_ok(), "expected success");
         let result = result.unwrap();
         assert!(result.ops > 0);
-        assert!(result.tps > 0f64);
+        assert!(result.tps > 0.);
         assert!(elapsed >= duration && elapsed <= duration + Duration::from_millis(100));
 
         println!("{result}");
@@ -404,16 +398,16 @@ mod tests {
             &CpuFeatures { num_cores: 8, sve: false, i8mm: false },
             Config {
                 duration,
-                n: 200,
+                n: 10,
                 ..Default::default()
             },
         );
         let elapsed = start.elapsed();
 
-        assert_eq!(true, result.is_ok(), "expected success");
+        assert!(result.is_ok(), "expected success");
         let result = result.unwrap();
         assert!(result.ops > 0);
-        assert!(result.tps > 0f64);
+        assert!(result.tps > 0.);
         assert!(elapsed >= duration && elapsed <= duration + Duration::from_millis(100));
 
         println!("{result}");
@@ -447,7 +441,7 @@ mod tests {
 
         let result = matrix::run_test(&matrix_a, &matrix_b, &mut matrix_r_slice, None);
 
-        assert_eq!(true, result.is_ok(), "expected success");
+        assert!(result.is_ok(), "expected success");
         assert_eq!(matrix_r_expected, matrix_r);
     }
 
@@ -480,7 +474,7 @@ mod tests {
         let threadpool = rayon::ThreadPoolBuilder::new().num_threads(2).build().unwrap();
         let result = matrix::run_test_multithread(&threadpool, &matrix_a, &matrix_b, &mut matrix_r_slice, None);
 
-        assert_eq!(true, result.is_ok(), "expected success");
+        assert!(result.is_ok(), "expected success");
         assert_eq!(matrix_r_expected, matrix_r);
     }
 

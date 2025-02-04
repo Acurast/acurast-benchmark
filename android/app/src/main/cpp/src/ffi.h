@@ -19,6 +19,7 @@ extern "C" {
     };
 
     void* new_bench(
+        uint64_t total_ram,
         uint64_t hwcap,
         uint64_t hwcap2,
         TypedU64 sve_mask,
@@ -45,6 +46,25 @@ extern "C" {
     CpuReport* bench_cpu(void *bench, CpuConfig config);
     CpuReport* bench_cpu_multithread(void *bench, CpuConfig config);
     void drop_cpu_report(void *report);
+
+    struct RamConfig {
+        size_t alloc_data_len;
+        size_t access_data_len;
+        size_t iters;
+    };
+
+    struct RamReport {
+        uint64_t total_mem;
+        double alloc_avg_t;
+        double access_seq_avg_t;
+        double access_rand_avg_t;
+        double access_con_avg_t;
+        const char *err;
+        size_t err_len;
+    };
+
+    RamReport* bench_ram(void *bench, RamConfig config);
+    void drop_ram_report(void *report);
 
     /******** C++ -> Rust ********/
 

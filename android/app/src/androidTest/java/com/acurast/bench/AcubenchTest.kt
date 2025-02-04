@@ -1,6 +1,7 @@
 package com.acurast.bench
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.Test
@@ -27,7 +28,8 @@ class AcubenchTest {
 
     @Before
     fun setup() {
-        acubench = Acubench()
+        val appContext = InstrumentationRegistry.getInstrumentation().targetContext
+        acubench = Acubench(appContext)
     }
 
     @Test
@@ -56,5 +58,18 @@ class AcubenchTest {
         }
 
         assert(time <= duration + 1.seconds)
+    }
+
+    @Test
+    fun testRam() {
+        val report = acubench.ram()
+
+        assert(report.totalMem > 0)
+        assert(report.allocAvgTime > 0)
+        assert(report.accessSequentialAvgTime > 0)
+        assert(report.accessRandomAvgTime > 0)
+        assert(report.accessConcurrentAvgTime > 0)
+
+        println("$report")
     }
 }
