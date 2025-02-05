@@ -41,15 +41,13 @@ android {
                 "proguard-rules.pro"
             )
         }
-        create("staging") {
-            initWith(buildTypes["debug"])
+        debug {
             externalNativeBuild {
                 cmake {
                     targets("acubenchtest")
                 }
             }
         }
-        testBuildType = "staging"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
