@@ -16,8 +16,8 @@ void transpose_matrix(const int8_t *m, int8_t *m_transposed, size_t n) {
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_acurast_bench_AcubenchNativeTest__1_1test_1matrix_1mul_1i8mm_1_1(JNIEnv *env,
-                                                                          jobject thiz) {
+Java_com_acurast_bench_AcubenchNativeTest__1_1test_1matrix_1mul_1sve_1i8mm_1_1(JNIEnv *env,
+                                                                               jobject thiz) {
 
     const size_t n = 4;
 
@@ -52,7 +52,7 @@ Java_com_acurast_bench_AcubenchNativeTest__1_1test_1matrix_1mul_1i8mm_1_1(JNIEnv
 
     int64_t ops_expected = 64;
 
-    Ops ops = matrix_mul_i8mm(matrix_a, matrix_b_transposed, matrix_r, 4, 0);
+    Ops ops = matrix_mul_sve_i8mm(matrix_a, matrix_b_transposed, matrix_r, 4, 0);
     if (ops.ok != ops_expected) {
 //        return false;
     }

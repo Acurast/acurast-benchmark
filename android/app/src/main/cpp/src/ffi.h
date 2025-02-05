@@ -92,7 +92,7 @@ void drop_storage_report(void *report);
         uint64_t err;
     };
 
-    Ops matrix_mul_i8mm(
+    Ops matrix_mul_sve_i8mm(
             const int8_t *matrix_a,
             const int8_t *matrix_b,
             int32_t *matrix_r,

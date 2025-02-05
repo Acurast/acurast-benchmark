@@ -105,7 +105,7 @@ pub(crate) fn bench_multithread(features: &CpuFeatures, config: Config) -> Resul
 }
 
 extern "C" {
-    fn matrix_mul_i8mm(
+    fn matrix_mul_sve_i8mm(
         matrix_a: *const i8,
         matrix_b: *const i8 /* transposed */,
         matrix_r: *mut i32,
@@ -206,7 +206,7 @@ mod matrix {
             // set of random data every time, which makes the results completely non-deterministic
             // and not comparable between run and different machines running it.
             // Therefore, we can skip the matrix transformation and use `matrix_b` as it is.
-            matrix_mul_i8mm(
+            matrix_mul_sve_i8mm(
                 matrix_a.as_ptr(),
                 matrix_b.as_ptr(),
                 matrix_r.as_mut_ptr(),
@@ -586,7 +586,7 @@ mod tests {
     }
 
     #[no_mangle]
-    extern "C" fn matrix_mul_i8mm(
+    extern "C" fn matrix_mul_sve_i8mm(
         _matrix_a: *const i8,
         _matrix_b: *const i8,
         _matrix_r: *mut i32,
