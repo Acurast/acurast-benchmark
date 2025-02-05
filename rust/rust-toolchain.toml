@@ -1,0 +1,5 @@
+[toolchain]
+channel = "1.84.0"
+targets = ["aarch64-linux-android"]
+components = ["rustfmt", "cargo", "clippy", "rust-std", "rust-analyzer"]
+
