@@ -107,11 +107,17 @@ pub(crate) fn bench_multithread(features: &CpuFeatures, config: Config) -> Resul
 extern "C" {
     fn matrix_mul_i8mm(
         matrix_a: *const i8,
-        b: *const i8,
-        r: *mut i32,
+        matrix_b: *const i8 /* transposed */,
+        matrix_r: *mut i32,
         n: usize,
         timeout_timestamp: usize,
-    ) -> i64;
+    ) -> Ops;
+}
+
+#[repr(C)]
+pub struct Ops {
+    pub ok: u64,
+    pub err: u64,
 }
 
 mod matrix {
@@ -192,7 +198,14 @@ mod matrix {
             None => 0,
         };
 
-        let ops = unsafe {
+        let result = unsafe {
+            // `matrix_mul_i8mm` expects a transposed `matrix_b`,
+            // however, in this test we care only for the correctness of the algorithm
+            // and the number of arithmetic operations performed in the process,
+            // not the validity of the results. Additionally, the test executes on a new
+            // set of random data every time, which makes the results completely non-deterministic
+            // and not comparable between run and different machines running it.
+            // Therefore, we can skip the matrix transformation and use `matrix_b` as it is.
             matrix_mul_i8mm(
                 matrix_a.as_ptr(),
                 matrix_b.as_ptr(),
@@ -201,10 +214,10 @@ mod matrix {
                 timeout,
             )
         };
-        if ops > 0 {
-            Ok(ops as u64)
+        if result.ok > 0 {
+            Ok(result.ok)
         } else {
-            Err(ops as u64)
+            Err(result.err)
         }
     }
 
@@ -575,11 +588,11 @@ mod tests {
     #[no_mangle]
     extern "C" fn matrix_mul_i8mm(
         _matrix_a: *const i8,
-        _b: *const i8,
-        _r: *mut i32,
+        _matrix_b: *const i8,
+        _matrix_r: *mut i32,
         _n: usize,
         _timeout_timestamp: usize,
-    ) -> i64 {
-        0
+    ) -> Ops {
+        Ops { ok: 0, err: 0 }
     }
 }
