@@ -5,7 +5,7 @@ coreKtx = "1.15.0"
 junit = "4.13.2"
 junitVersion = "1.2.1"
 espressoCore = "3.6.1"
-rust = "0.9.6"
+rust = "0.9.4"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -17,4 +17,5 @@ rust-plugin = { module = "org.mozilla.rust-android-gradle:plugin", version.ref =
 [plugins]
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+maven-publish = { id = "maven-publish" }
 rust-gradle = { id = "org.mozilla.rust-android-gradle.rust-android", version.ref = "rust" }

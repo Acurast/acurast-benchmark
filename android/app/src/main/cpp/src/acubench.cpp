@@ -6,7 +6,11 @@
 
 #include <cstdint>
 #include <sys/auxv.h>
+
+#ifdef __aarch64__
 #include <asm/hwcap.h>
+#endif //__aarch64__
+
 #include <vector>
 
 #include "ffi.h"
@@ -20,11 +24,19 @@ void throw_runtime_exception(JNIEnv *env, const char *message) {
 extern "C"
 JNIEXPORT jlong JNICALL
 Java_com_acurast_bench_Acubench__1_1new_1_1(JNIEnv *env, jobject thiz, jlong total_ram, jlong avail_storage) {
-    auto hwcap = getauxval(AT_HWCAP);
-    auto hwcap2 = getauxval(AT_HWCAP2);
+    #ifdef __aarch64__
+        uint64_t hwcap = getauxval(AT_HWCAP);
+        uint64_t hwcap2 = getauxval(AT_HWCAP2);
+        auto sve_mask = TypedU64 {.t = 0, .v = HWCAP_SVE};
+        auto i8mm_mask = TypedU64 {.t = 1, .v = HWCAP2_I8MM};
+    #else
+        uint64_t hwcap = 0;
+        uint64_t hwcap2 = 0;
+        auto sve_mask = TypedU64 {.t = 0, .v = 0};
+        auto i8mm_mask = TypedU64 {.t = 0, .v = 0};
+    #endif //__aarch64__
 
-    auto bench = new_bench(total_ram, avail_storage, hwcap, hwcap2, TypedU64{.t = 0, .v = HWCAP_SVE},
-                           TypedU64{.t = 1, .v = HWCAP2_I8MM});
+    auto bench = new_bench(total_ram, avail_storage, hwcap, hwcap2, sve_mask, i8mm_mask);
 
     return reinterpret_cast<jlong>(bench);
 }

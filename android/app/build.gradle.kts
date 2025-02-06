@@ -3,7 +3,14 @@ import org.gradle.kotlin.dsl.support.listFilesOrdered
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.maven.publish)
     alias(libs.plugins.rust.gradle)
+}
+
+object Library {
+    const val groupId = "com.acurast.bench"
+    const val artifactId = "acubench"
+    const val version = "1.0.0"
 }
 
 android {
@@ -13,7 +20,7 @@ android {
 
     defaultConfig {
         minSdk = 24
-        version = "1.0"
+        version = Library.version
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -34,15 +41,13 @@ android {
                 "proguard-rules.pro"
             )
         }
-        create("staging") {
-            initWith(buildTypes["debug"])
+        debug {
             externalNativeBuild {
                 cmake {
                     targets("acubenchtest")
                 }
             }
         }
-        testBuildType = "staging"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -54,7 +59,7 @@ android {
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.31.4"
+            version = "3.22.1"
         }
     }
 }
@@ -70,6 +75,20 @@ cargo {
     targetIncludes = arrayOf("")
     profile = "release"
     prebuiltToolchains = true
+}
+
+publishing {
+    publications {
+        register<MavenPublication>("maven") {
+            groupId = Library.groupId
+            artifactId = Library.artifactId
+            version = Library.version
+
+            afterEvaluate {
+                from(components["release"])
+            }
+        }
+    }
 }
 
 dependencies {
@@ -95,11 +114,5 @@ val ffiBuild: TaskProvider<Task> = tasks.register("ffiBuild", Task::class.java) 
                 rename { "libacubench_ffi.a" }
             }
         }
-    }
-}
-
-tasks.configureEach {
-    if (name == "mergeDebugJniLibFolders" || name == "mergeReleaseJniLibFolders") {
-        dependsOn("ffiBuild")
     }
 }

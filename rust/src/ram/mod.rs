@@ -5,18 +5,10 @@ use crate::utils::MB;
 pub(crate) mod access;
 pub(crate) mod alloc;
 
+#[derive(Default)]
 pub struct Config {
     pub alloc: alloc::Config,
     pub access: access::Config,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            alloc: Default::default(),
-            access: Default::default(),
-        }
-    }
 }
 
 pub struct Report {
