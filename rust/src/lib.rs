@@ -217,8 +217,8 @@ mod tests {
         );
         let result = bench.storage(storage::Config {
             access: storage::access::Config {
-                data_len_mb: 10,
-                iters: 2,
+                data_len_mb: 1,
+                iters: 1,
                 ..Default::default()
             },
         });

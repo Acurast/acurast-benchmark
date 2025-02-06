@@ -87,7 +87,12 @@ void drop_storage_report(void *report);
 
     /******** C++ -> Rust ********/
 
-    int64_t matrix_mul_i8mm(
+    struct Ops {
+        uint64_t ok;
+        uint64_t err;
+    };
+
+    Ops matrix_mul_sve_i8mm(
             const int8_t *matrix_a,
             const int8_t *matrix_b,
             int32_t *matrix_r,

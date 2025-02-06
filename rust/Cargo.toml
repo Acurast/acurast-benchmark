@@ -1,6 +1,6 @@
 [package]
 name = "acubench"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 
 [lib]
@@ -16,3 +16,9 @@ sha2 = "0.10.8"
 
 [dev-dependencies]
 hex-literal = "0.4.1"
+
+[profile.dev]
+overflow-checks = false
+
+[profile.release]
+overflow-checks = false

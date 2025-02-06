@@ -4,16 +4,9 @@ use crate::utils::GB;
 
 pub(crate) mod access;
 
+#[derive(Default)]
 pub struct Config {
     pub access: access::Config,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            access: Default::default(),
-        }
-    }
 }
 
 pub struct Report {
