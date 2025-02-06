@@ -8,7 +8,6 @@
 #include <ctime>
 #include <jni.h>
 
-
 /******** C++ -> Rust ********/
 
 #ifdef __aarch64__
