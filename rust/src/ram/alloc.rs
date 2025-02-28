@@ -4,9 +4,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::utils::{Avg, MB};
+use crate::{utils::{Avg, MB}, CpuFeatures};
 
-pub(crate) fn bench(config: Config) -> Result<Report, Error> {
+pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, Error> {
     let mut report_builder = ReportBuilder::new(config.iters);
 
     let mut start: Instant;
@@ -31,15 +31,15 @@ fn run_test(n: usize) -> Result<(), Error> {
 }
 
 pub struct Config {
-    pub data_len: usize,
     pub iters: usize,
+    pub data_len: usize,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
-            data_len: 64 * MB,
             iters: 100,
+            data_len: 64 * MB,
         }
     }
 }
@@ -87,11 +87,18 @@ mod tests {
 
     #[test]
     fn test_bench() {
-        let result = bench(Config {
-            data_len: 64,
-            iters: 5,
-            ..Default::default()
-        });
+        let result = bench(
+            &CpuFeatures {
+                num_cores: 8,
+                sve: false,
+                i8mm: false,
+            },
+            Config {
+                iters: 5,
+                data_len: 64,
+                ..Default::default()
+            }
+        );
 
         assert_eq!(true, result.is_ok(), "expected success");
         let result = result.unwrap();

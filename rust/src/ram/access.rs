@@ -10,22 +10,22 @@ use crate::{utils::{Avg, KB}, CpuFeatures};
 
 pub(crate) fn bench(features: &CpuFeatures, config: Config) -> Result<Report, Error> {
     let mut context = Context::new(config);
-    let mut report_builder = ReportBuilder::new(context.iters);
+    let mut report_builder = ReportBuilder::new(context.seq_iters, context.rand_iters, context.concurr_iters);
 
     let mut start: Instant;
-    for _ in 0..context.iters {
-        context.reset_data();
+    for _ in 0..context.seq_iters {
+        context.reset_data(context.seq_data_len);
 
         start = Instant::now();
-        black_box(sequential::run_test(&mut context.data)?);
+        black_box(sequential::run_test(context.seq_data())?);
         report_builder.add_seq(start.elapsed());
     }
 
-    let indices = (0..context.data.len()).collect::<Vec<_>>();
+    let indices = (0..context.rand_data().len()).collect::<Vec<_>>();
     let mut write_indices;
     let mut read_indices;
-    for _ in 0..context.iters {
-        context.reset_data();
+    for _ in 0..context.rand_iters {
+        context.reset_data(context.rand_data_len);
 
         write_indices = indices.clone();
         write_indices.shuffle(&mut context.rng);
@@ -35,21 +35,21 @@ pub(crate) fn bench(features: &CpuFeatures, config: Config) -> Result<Report, Er
 
         start = Instant::now();
         black_box(random::run_test(
-            &mut context.data,
+            context.rand_data(),
             &write_indices,
             &read_indices,
         )?);
         report_builder.add_rand(start.elapsed());
     }
 
-    let chunk_size = context.data.len().div_ceil(features.num_cores);
-    for _ in 0..context.iters {
-        context.reset_data();
-        let chunks = context.data.chunks_mut(chunk_size).collect::<Vec<_>>();
+    let chunk_size = context.concurr_data().len().div_ceil(features.num_cores);
+    for _ in 0..context.concurr_iters {
+        context.reset_data(context.concurr_data_len);
+        let chunks = context.concurr_data().chunks_mut(chunk_size).collect::<Vec<_>>();
 
         start = Instant::now();
         black_box(concurrent::run_test(chunks)?);
-        report_builder.add_con(start.elapsed());
+        report_builder.add_concurr(start.elapsed());
     }
 
     Ok(report_builder.build())
@@ -134,16 +134,33 @@ mod concurrent {
 
 pub struct Config {
     pub rng: Box<dyn rand::RngCore>,
-    pub data_len: usize,
-    pub iters: usize,
+
+    pub seq_iters: usize,
+    pub seq_data_len: usize,
+
+    pub rand_iters: usize,
+    pub rand_data_len: usize,
+
+    pub concurr_iters: usize,
+    pub concurr_data_len: usize,
 }
 
 impl Default for Config {
     fn default() -> Self {
+        let iters = 100;
+        let data_len = 64 * KB;
+
         Self {
             rng: Box::new(rand::thread_rng()),
-            data_len: 64 * KB,
-            iters: 100,
+
+            seq_iters: iters,
+            seq_data_len: data_len,
+
+            rand_iters: iters,
+            rand_data_len: data_len,
+
+            concurr_iters: iters,
+            concurr_data_len: data_len,
         }
     }
 }
@@ -156,7 +173,7 @@ pub enum Error {
 pub struct Report {
     pub seq_avg_t: Duration,
     pub rand_avg_t: Duration,
-    pub con_avg_t: Duration,
+    pub concurr_avg_t: Duration,
 }
 
 impl fmt::Display for Report {
@@ -174,7 +191,7 @@ impl fmt::Display for Report {
         write!(
             f,
             "concurrent access ... {:.6} s",
-            self.con_avg_t.as_secs_f64()
+            self.concurr_avg_t.as_secs_f64()
         )?;
 
         Ok(())
@@ -184,15 +201,15 @@ impl fmt::Display for Report {
 struct ReportBuilder {
     seq_ts: Vec<Duration>,
     rand_ts: Vec<Duration>,
-    con_ts: Vec<Duration>,
+    concurr_ts: Vec<Duration>,
 }
 
 impl ReportBuilder {
-    fn new(iters: usize) -> Self {
+    fn new(seq_iters: usize, rand_iters: usize, concurr_iters: usize) -> Self {
         Self {
-            seq_ts: Vec::with_capacity(iters),
-            rand_ts: Vec::with_capacity(iters),
-            con_ts: Vec::with_capacity(iters),
+            seq_ts: Vec::with_capacity(seq_iters),
+            rand_ts: Vec::with_capacity(rand_iters),
+            concurr_ts: Vec::with_capacity(concurr_iters),
         }
     }
 
@@ -204,15 +221,15 @@ impl ReportBuilder {
         self.rand_ts.push(time);
     }
 
-    fn add_con(&mut self, time: Duration) {
-        self.con_ts.push(time);
+    fn add_concurr(&mut self, time: Duration) {
+        self.concurr_ts.push(time);
     }
 
     fn build(self) -> Report {
         Report {
             seq_avg_t: self.seq_ts.avg(),
             rand_avg_t: self.rand_ts.avg(),
-            con_avg_t: self.con_ts.avg(),
+            concurr_avg_t: self.concurr_ts.avg(),
         }
     }
 }
@@ -220,23 +237,50 @@ impl ReportBuilder {
 struct Context {
     rng: Box<dyn rand::RngCore>,
 
-    iters: usize,
     data: Vec<u8>,
+
+    seq_iters: usize,
+    seq_data_len: usize,
+
+    rand_iters: usize,
+    rand_data_len: usize,
+
+    concurr_iters: usize,
+    concurr_data_len: usize,
 }
 
 impl Context {
     fn new(config: Config) -> Self {
-        let data = vec![0u8; config.data_len];
+        let data = vec![0u8; config.seq_data_len];
 
         Self {
             rng: config.rng,
-            iters: config.iters,
             data,
+
+            seq_iters: config.seq_iters,
+            seq_data_len: config.seq_data_len,
+
+            rand_iters: config.rand_iters,
+            rand_data_len: config.rand_data_len,
+
+            concurr_iters: config.concurr_iters,
+            concurr_data_len: config.concurr_data_len
         }
     }
 
-    fn reset_data(&mut self) {
-        let size = self.data.len();
+    fn seq_data(&mut self) -> &mut [u8] {
+        &mut self.data[..self.seq_data_len]
+    }
+
+    fn rand_data(&mut self) -> &mut [u8] {
+        &mut self.data[..self.rand_data_len]
+    }
+
+    fn concurr_data(&mut self) -> &mut [u8] {
+        &mut self.data[..self.concurr_data_len]
+    }
+
+    fn reset_data(&mut self, size: usize) {
         self.data.clear();
         self.data.resize(size, 0);
     }
@@ -248,6 +292,9 @@ mod tests {
 
     #[test]
     fn test_bench() {
+        let iters = 5;
+        let data_len = 64;
+
         let result = bench(
             &CpuFeatures {
                 num_cores: 8,
@@ -255,8 +302,12 @@ mod tests {
                 i8mm: false,
             },
             Config {
-                data_len: 64,
-                iters: 5,
+                seq_iters: iters,
+                seq_data_len: data_len,
+                rand_iters: iters,
+                rand_data_len: data_len,
+                concurr_iters: iters,
+                concurr_data_len: data_len,
                 ..Default::default()
             },
         );
@@ -265,6 +316,7 @@ mod tests {
         let result = result.unwrap();
         assert!(result.seq_avg_t > Duration::ZERO);
         assert!(result.rand_avg_t > Duration::ZERO);
+        assert!(result.concurr_avg_t > Duration::ZERO);
 
         println!("{result}");
     }
