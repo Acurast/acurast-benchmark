@@ -30,18 +30,28 @@ extern "C" {
     void drop_bench(void *bench);
 
     struct CpuConfig {
-        size_t duration;
-        size_t enc_data_len;
+        size_t crypto_duration;
+        size_t crypto_data_len;
+
+        size_t math_duration;
         size_t math_data_len;
+
+        size_t sort_duration;
         size_t sort_data_len;
     };
 
     struct CpuReport {
         double crypto_tps;
+        const char *crypto_err;
+        size_t crypto_err_len;
+
         double math_tps;
+        const char *math_err;
+        size_t math_err_len;
+
         double sort_tps;
-        const char *err;
-        size_t err_len;
+        const char *sort_err;
+        size_t sort_err_len;
     };
 
     CpuReport* bench_cpu(void *bench, CpuConfig config);
@@ -49,41 +59,58 @@ extern "C" {
     void drop_cpu_report(void *report);
 
     struct RamConfig {
+        size_t alloc_iters;
         size_t alloc_data_len;
-        size_t access_data_len;
-        size_t iters;
+
+        size_t access_seq_iters;
+        size_t access_seq_data_len;
+
+        size_t access_rand_iters;
+        size_t access_rand_data_len;
+
+        size_t access_concurr_iters;
+        size_t access_concurr_data_len;
     };
 
     struct RamReport {
         uint64_t total_mem;
+
         double alloc_avg_t;
+        const char *alloc_err;
+        size_t alloc_err_len;
+
         double access_seq_avg_t;
         double access_rand_avg_t;
         double access_con_avg_t;
-        const char *err;
-        size_t err_len;
+        const char *access_err;
+        size_t access_err_len;
     };
 
     RamReport* bench_ram(void *bench, RamConfig config);
     void drop_ram_report(void *report);
 
-struct StorageConfig {
-    const char *dir;
-    size_t dir_len;
-    size_t access_data_len_mb;
-    size_t iters;
-};
+    struct StorageConfig {
+        const char *dir;
+        size_t dir_len;
 
-struct StorageReport {
-    uint64_t avail_storage;
-    double access_seq_avg_t;
-    double access_rand_avg_t;
-    const char *err;
-    size_t err_len;
-};
+        size_t access_seq_iters;
+        size_t access_seq_data_len_mb;
 
-StorageReport* bench_storage(void *bench, StorageConfig config);
-void drop_storage_report(void *report);
+        size_t access_rand_iters;
+        size_t access_rand_data_len_mb;
+    };
+
+    struct StorageReport {
+        uint64_t avail_storage;
+
+        double access_seq_avg_t;
+        double access_rand_avg_t;
+        const char *access_err;
+        size_t access_err_len;
+    };
+
+    StorageReport* bench_storage(void *bench, StorageConfig config);
+    void drop_storage_report(void *report);
 
     /******** C++ -> Rust ********/
 
