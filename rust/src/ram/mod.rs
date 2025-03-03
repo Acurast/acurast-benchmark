@@ -6,7 +6,7 @@ use crate::{macros::*, utils::MB, CpuFeatures};
 pub(crate) mod access;
 pub(crate) mod alloc;
 
-pub(crate) struct Bench {
+pub struct Bench {
     features: Rc<CpuFeatures>,
     total_mem: u64,
 }

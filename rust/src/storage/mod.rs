@@ -5,7 +5,7 @@ use crate::{macros::*, utils::GB, CpuFeatures};
 
 pub(crate) mod access;
 
-pub(crate) struct Bench {
+pub struct Bench {
     features: Rc<CpuFeatures>,
     avail_storage: u64,
 }

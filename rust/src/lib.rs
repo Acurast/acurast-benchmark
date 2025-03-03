@@ -21,8 +21,6 @@ pub(crate) struct CpuFeatures {
 }
 
 pub struct Bench {
-    features: Rc<CpuFeatures>,
-
     pub cpu: cpu::Bench,
     pub ram: ram::Bench,
     pub storage: storage::Bench,
@@ -33,7 +31,6 @@ impl Bench {
         let features = Rc::new(features);
 
         Self {
-            features: features.clone(),
             cpu: cpu::Bench::new(features.clone()),
             ram: ram::Bench::new(features.clone(), total_ram),
             storage: storage::Bench::new(features, avail_storage),

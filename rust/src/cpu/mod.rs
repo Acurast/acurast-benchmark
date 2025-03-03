@@ -6,7 +6,7 @@ pub(crate) mod crypto;
 pub(crate) mod math;
 pub(crate) mod sort;
 
-pub(crate) struct Bench {
+pub struct Bench {
     features: Rc<CpuFeatures>,
 }
 
