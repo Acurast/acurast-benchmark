@@ -1,4 +1,4 @@
-use std::{path::PathBuf, ptr::null, slice, str, time::Duration};
+use std::{ptr::null, time::Duration};
 
 use crate::{
     arm::{Auxval, AuxvalMask},
@@ -304,7 +304,7 @@ macro_rules! impl_from_ram_config {
     ($typ:ident, $((($src_iters:ident : $tar_iters:ident), ($src_data_len:ident : $tar_data_len:ident))),*) => {
         impl From<&RamConfig> for Option<ram::$typ::Config> {
             fn from(value: &RamConfig) -> Self {
-                if $(value.$src_iters > 0 && value.$src_data_len > 0)&&* {
+                if $((value.$src_iters > 0 && value.$src_data_len > 0))||* {
                     Some(ram::$typ::Config {
                         $(
                             $tar_iters: value.$src_iters,
@@ -376,7 +376,7 @@ macro_rules! impl_from_storage_config {
     ($typ:ident, $((($src_iters:ident : $tar_iters:ident), ($src_data_len:ident : $tar_data_len:ident))),*) => {
         impl From<&StorageConfig> for Option<storage::$typ::Config> {
             fn from(value: &StorageConfig) -> Self {
-                if $(value.$src_iters > 0 && value.$src_data_len > 0)&&* {
+                if $((value.$src_iters > 0 && value.$src_data_len > 0))||* {
                     Some(storage::$typ::Config {
                         $(
                             $tar_iters: value.$src_iters,
