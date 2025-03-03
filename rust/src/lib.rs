@@ -191,15 +191,22 @@ mod tests {
                 i8mm: false,
             },
         );
+
+        let iters = 5;
+        let data_len = 64;
         let result = bench.ram(ram::Config {
             alloc: ram::alloc::Config {
-                data_len: 64,
-                iters: 5,
+                iters,
+                data_len,
                 ..Default::default()
             },
             access: ram::access::Config {
-                seq_data_len: 64,
-                seq_iters: 5,
+                seq_iters: iters,
+                seq_data_len: data_len,
+                rand_iters: iters,
+                rand_data_len: data_len,
+                concurr_iters: iters,
+                concurr_data_len: data_len,
                 ..Default::default()
             },
         });
@@ -222,10 +229,15 @@ mod tests {
                 i8mm: false,
             },
         );
+
+        let iters = 1;
+        let data_len_mb = 1;
         let result = bench.storage(storage::Config {
             access: storage::access::Config {
-                seq_data_len_mb: 1,
-                seq_iters: 1,
+                seq_iters: iters,
+                seq_data_len_mb: data_len_mb,
+                rand_iters: iters,
+                rand_data_len_mb: data_len_mb,
                 ..Default::default()
             },
         });
