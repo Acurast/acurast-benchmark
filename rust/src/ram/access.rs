@@ -21,7 +21,7 @@ pub(crate) fn bench(features: &CpuFeatures, config: Config) -> Result<Report, Er
         report_builder.add_seq(start.elapsed());
     }
 
-    let indices = (0..context.rand_data().len()).collect::<Vec<_>>();
+    let indices = (0..context.rand_data_len).collect::<Vec<_>>();
     let mut write_indices;
     let mut read_indices;
     for _ in 0..context.rand_iters {
@@ -42,7 +42,7 @@ pub(crate) fn bench(features: &CpuFeatures, config: Config) -> Result<Report, Er
         report_builder.add_rand(start.elapsed());
     }
 
-    let chunk_size = context.concurr_data().len().div_ceil(features.num_cores);
+    let chunk_size = context.concurr_data_len.div_ceil(features.num_cores);
     for _ in 0..context.concurr_iters {
         context.reset_data(context.concurr_data_len);
         let chunks = context.concurr_data().chunks_mut(chunk_size).collect::<Vec<_>>();
