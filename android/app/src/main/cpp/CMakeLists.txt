@@ -9,6 +9,7 @@ cmake_minimum_required(VERSION 3.22.1)
 # Since this is the top level CMakeLists.txt, the project name is also accessible
 # with ${CMAKE_PROJECT_NAME} (both CMake variables are in-sync within the top level
 # build script scope).
+project(acubench)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -29,11 +30,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(ACUBENCH acubench)
 add_library(${ACUBENCH} SHARED
         # List C/C++ source files with relative paths to this CMakeLists.txt.
-        src/ffi.h
-        src/ffi.cpp
-
         src/acubench.h
-        src/acubench.cpp)
+        src/acubench.cpp
+
+        src/ffi.h
+        src/ffi.cpp)
 
 add_library(acubench-ffi SHARED IMPORTED)
 set_target_properties(acubench-ffi PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/libs/${ANDROID_ABI}/libacubench_ffi.a)
