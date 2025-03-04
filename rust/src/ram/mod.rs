@@ -1,9 +1,36 @@
 use core::fmt;
+use std::rc::Rc;
 
-use crate::utils::MB;
+use crate::{macros::*, utils::MB, CpuFeatures};
 
 pub(crate) mod access;
 pub(crate) mod alloc;
+
+pub struct Bench {
+    features: Rc<CpuFeatures>,
+    total_mem: u64,
+}
+
+impl Bench {
+    pub(crate) fn new(features: Rc<CpuFeatures>, total_mem: u64) -> Self {
+        Self { features, total_mem }
+    }
+
+    pub fn total_mem(&self) -> u64 {
+        self.total_mem
+    }
+
+    fn_bench!(access);
+    fn_bench!(alloc);
+
+    pub(crate) fn all(&self, config: Config) -> Result<Report, Error> {
+        Ok(Report {
+            total_mem: self.total_mem,
+            alloc: self.alloc(config.alloc).map_err(Error::Alloc)?,
+            access: self.access(config.access).map_err(Error::Access)?,
+        })
+    }
+}
 
 #[derive(Default)]
 pub struct Config {

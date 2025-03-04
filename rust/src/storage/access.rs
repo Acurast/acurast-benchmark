@@ -23,10 +23,10 @@ use crate::{
 
 pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, Error> {
     let mut context = Context::new(config);
-    let mut report_builder = ReportBuilder::new(context.iters);
+    let mut report_builder = ReportBuilder::new(context.seq_iters);
 
     let mut start: Instant;
-    for _ in 0..context.iters {
+    for _ in 0..context.seq_iters {
         let mut file = context.open_file().map_err(|err| Error::IO(err))?;
         context.reset_write_buf();
         context.reset_read_buf();
@@ -36,24 +36,24 @@ pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, E
             &mut file,
             &mut context.write_buf_mb,
             &mut context.read_buf_mb,
-            context.size_mb,
+            context.seq_size_mb,
         )?);
         report_builder.add_seq(start.elapsed());
 
         remove_file(context.file_path.clone()).map_err(|err| Error::IO(err))?;
     }
 
-    for _ in 0..context.iters {
+    for _ in 0..context.rand_iters {
         let mut file = context.open_file().map_err(|err| Error::IO(err))?;
-        for _ in 0..context.size_mb {
+        for _ in 0..context.seq_size_mb {
             file.write_all(&mut context.write_buf_mb)
                 .map_err(|err| Error::IO(err))?;
         }
         context.reset_write_buf();
         context.reset_read_buf();
 
-        let write_offsets = context.random_offsets(context.size_mb);
-        let read_offsets = context.random_offsets(context.size_mb);
+        let write_offsets = context.random_offsets(context.rand_size_mb);
+        let read_offsets = context.random_offsets(context.rand_size_mb);
 
         start = Instant::now();
         black_box(random::run_test(
@@ -142,17 +142,27 @@ pub struct Config {
 
     pub dir: PathBuf,
 
-    pub data_len_mb: usize,
-    pub iters: usize,
+    pub seq_iters: usize,
+    pub seq_data_len_mb: usize,
+
+    pub rand_iters: usize,
+    pub rand_data_len_mb: usize,
 }
 
 impl Default for Config {
     fn default() -> Self {
+        let iters = 10;
+        let data_len_mb = 500;
+
         Self {
             rng: Box::new(rand::thread_rng()),
             dir: temp_dir(),
-            data_len_mb: 500,
-            iters: 10,
+
+            seq_iters: iters,
+            seq_data_len_mb: data_len_mb,
+
+            rand_iters: iters,
+            rand_data_len_mb: data_len_mb,
         }
     }
 }
@@ -219,10 +229,14 @@ struct Context {
 
     file_path: PathBuf,
 
-    iters: usize,
-    size_mb: usize,
     write_buf_mb: Vec<u8>,
     read_buf_mb: Vec<u8>,
+
+    seq_iters: usize,
+    seq_size_mb: usize,
+    
+    rand_iters: usize,
+    rand_size_mb: usize,
 }
 
 impl Context {
@@ -240,10 +254,15 @@ impl Context {
         Self {
             rng: config.rng,
             file_path,
-            iters: config.iters,
-            size_mb: config.data_len_mb,
+
             write_buf_mb,
             read_buf_mb,
+
+            seq_iters: config.seq_iters,
+            seq_size_mb: config.seq_data_len_mb,
+
+            rand_iters: config.rand_iters,
+            rand_size_mb: config.rand_data_len_mb,
         }
     }
 
@@ -281,7 +300,7 @@ impl Context {
 
     fn random_offsets(&mut self, size: usize) -> Vec<u64> {
         (0..size)
-            .map(|_| self.rng.gen_range(0..self.size_mb) as u64 * MB as u64)
+            .map(|_| self.rng.gen_range(0..self.rand_size_mb) as u64 * MB as u64)
             .collect()
     }
 }
@@ -292,6 +311,9 @@ mod tests {
 
     #[test]
     fn test_bench() {
+        let iters = 2;
+        let data_len_mb = 10;
+
         let result = bench(
             &CpuFeatures {
                 num_cores: 8,
@@ -299,8 +321,10 @@ mod tests {
                 i8mm: false,
             },
             Config {
-                data_len_mb: 10,
-                iters: 2,
+                seq_iters: iters,
+                seq_data_len_mb: data_len_mb,
+                rand_iters: iters,
+                rand_data_len_mb: data_len_mb,
                 ..Default::default()
             },
         );

@@ -5,6 +5,7 @@ before_install:
   - ${ANDROID_HOME}/cmdline-tools/bin/sdkmanager --sdk_root=${ANDROID_HOME} "ndk;27.2.12479018"
   - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
   - source $HOME/.cargo/env
+  - rustup override set 1.84.0
   - rustup target add aarch64-linux-android
   - rustup target add armv7-linux-androideabi
   - cd ./android
