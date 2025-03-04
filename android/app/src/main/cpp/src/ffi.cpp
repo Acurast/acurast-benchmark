@@ -25,7 +25,6 @@
         uint64_t ops = 0;
 
         uint64_t vl = svcntb();
-        int8_t col_b[vl];
         for (size_t i = 0; i < n; i++) {
             for (size_t j = 0; j < n; j++) {
                 svint32_t sum = svdup_s32(0);
