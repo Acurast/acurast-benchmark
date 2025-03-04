@@ -54,7 +54,7 @@ Java_com_acurast_bench_AcubenchNativeTest__1_1test_1matrix_1mul_1sve_1i8mm_1_1(J
 
     Ops ops = matrix_mul_sve_i8mm(matrix_a, matrix_b_transposed, matrix_r, 4, 0);
     if (ops.ok != ops_expected) {
-//        return false;
+        return false;
     }
 
     bool equal = true;
