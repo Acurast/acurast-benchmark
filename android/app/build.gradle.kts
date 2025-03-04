@@ -114,5 +114,14 @@ val ffiBuild: TaskProvider<Task> = tasks.register("ffiBuild", Task::class.java) 
                 rename { "libacubench_ffi.a" }
             }
         }
+
+        copy {
+            from("../../rust/ffi/ffi.h")
+            into("./src/main/cpp/src/")
+        }
+        copy {
+            from("../../rust/ffi/ffi.cpp")
+            into("./src/main/cpp/src/")
+        }
     }
 }

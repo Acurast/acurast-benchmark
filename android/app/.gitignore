@@ -1,2 +1,4 @@
 /build
 /src/main/cpp/libs/**/*.a
+/src/main/cpp/src/ffi.h
+/src/main/cpp/src/ffi.cpp
