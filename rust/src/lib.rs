@@ -1,6 +1,6 @@
 use std::{fmt, rc::Rc};
 
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(target_arch = "arm", target_arch = "aarch64", target_os = "ios"))]
 pub mod arm;
 
 #[cfg(any(target_os = "android", target_os = "ios"))]

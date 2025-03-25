@@ -2,6 +2,7 @@
 #define ACUBENCH_FFI_H
 
 #include <cstdint>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
