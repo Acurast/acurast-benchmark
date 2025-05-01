@@ -62,7 +62,10 @@ pub struct CpuConfig {
 
 #[repr(C)]
 pub struct CpuReport {
-    tps: f64,
+    crypto_tps: f64,
+    math_tps: f64,
+    sort_tps: f64,
+    score: f64,
 
     err: *const u8,
     err_len: usize,
@@ -140,7 +143,11 @@ pub struct RamConfig {
 #[repr(C)]
 pub struct RamReport {
     total_mem: u64,
-    ops: f64,
+    alloc_avg_t: f64,
+    access_seq_avg_t: f64,
+    access_rand_avg_t: f64,
+    access_concurr_avg_t: f64,
+    score: f64,
 
     err: *const u8,
     err_len: usize,
@@ -193,7 +200,9 @@ pub struct StorageConfig {
 #[repr(C)]
 pub struct StorageReport {
     avail_storage: u64,
-    ops: f64,
+    access_seq_avg_t: f64,
+    access_rand_avg_t: f64,
+    score: f64,
 
     err: *const u8,
     err_len: usize,
@@ -247,10 +256,6 @@ impl From<TypedU64> for AuxvalMask {
     }
 }
 
-trait Score {
-    fn score(&self) -> f64;
-}
-
 fn inv_t_score(score_t: Duration) -> f64 {
     let secs = score_t.as_secs_f64();
     if secs <= 0. {
@@ -261,16 +266,10 @@ fn inv_t_score(score_t: Duration) -> f64 {
 }
 
 macro_rules! unpack_report {
-    ($rep:expr, f($val:ident : $def:expr)) => {{
+    ($rep:expr, $(($val:ident : $def:expr)),*) => {{
         match &$rep {
-            Some(rep) => rep.$val,
-            None => $def,
-        }
-    }};
-    ($rep:expr, m($val:ident : $def:expr)) => {{
-        match &$rep {
-            Some(rep) => rep.$val(),
-            None => $def,
+            Some(rep) => ($(rep.$val),*),
+            None => ($($def),*),
         }
     }};
 }
@@ -306,29 +305,35 @@ type CpuCombinedReports = (
     Option<cpu::sort::Report>,
 );
 
+macro_rules! unpack_cpu_report {
+    ($rep:expr) => {
+        unpack_report!($rep, (tps: 0.))
+    };
+}
+
 impl From<Result<CpuCombinedReports, String>> for CpuReport {
     fn from(value: Result<CpuCombinedReports, String>) -> Self {
-        let (tps, err, err_len) = match value {
-            Ok(reports) => (reports.score(), null(), 0),
-            Err(err) => (0., err.as_ptr(), err.len()),
+        let (crypto_tps, math_tps, sort_tps, score, err, err_len) = match value {
+            Ok((crypto_report, math_report, sort_report)) => {
+                let crypto_tps = unpack_cpu_report!(crypto_report);
+                let math_tps = unpack_cpu_report!(math_report);
+                let sort_tps = unpack_cpu_report!(sort_report);
+                let score = (crypto_tps + math_tps + sort_tps) / 3.;
+
+                (crypto_tps, math_tps, sort_tps, score, null(), 0)
+            },
+            Err(err) => (0., 0., 0., 0., err.as_ptr(), err.len()),
         };
 
         Self {
-            tps,
+            crypto_tps,
+            math_tps,
+            sort_tps,
+            score,
 
             err,
             err_len,
         }
-    }
-}
-
-impl Score for CpuCombinedReports {
-    fn score(&self) -> f64 {
-        let crypto = unpack_report!(self.0, f(tps: 0.));
-        let math = unpack_report!(self.1, f(tps: 0.));
-        let sort = unpack_report!(self.2, f(tps: 0.));
-
-        (crypto + math + sort) / 3.
     }
 }
 
@@ -368,45 +373,49 @@ type RamCombinedReports = (
     Option<ram::access::Report>,
 );
 
+macro_rules! unpack_ram_report {
+    ($rep:expr, $($val:ident),*) => {
+        unpack_report!($rep, $(($val: Duration::ZERO)),*)
+    };
+    ($rep:expr) => {
+        unpack_ram_report!($rep, avg_t)
+    }
+}
+
 impl From<(u64, Result<RamCombinedReports, String>)> for RamReport {
     fn from(value: (u64, Result<RamCombinedReports, String>)) -> Self {
-        let (ops, err, err_len) = match value.1 {
-            Ok((alloc_report, access_report)) => ((alloc_report, access_report).score(), null(), 0),
-            Err(err) => (0., err.as_ptr(), err.len()),
+        let (alloc_avg_t, access_seq_avg_t, access_rand_avg_t, access_concurr_avg_t, score, err, err_len) = match value.1 {
+            Ok((alloc_report, access_report)) => {
+                let alloc_avg_t = unpack_ram_report!(alloc_report);
+                let (access_seq_avg_t, access_rand_avg_t, access_concurr_avg_t) = unpack_ram_report!(
+                    access_report,
+                    seq_avg_t,
+                    rand_avg_t,
+                    concurr_avg_t
+                );
+                let score = (
+                    inv_t_score(alloc_avg_t) +
+                    inv_t_score(access_seq_avg_t) +
+                    inv_t_score(access_rand_avg_t) +
+                    inv_t_score(access_concurr_avg_t)
+                ) / 4.;
+
+                (alloc_avg_t.as_secs_f64(), access_seq_avg_t.as_secs_f64(), access_rand_avg_t.as_secs_f64(), access_concurr_avg_t.as_secs_f64(), score, null(), 0)
+            },
+            Err(err) => (0., 0., 0., 0., 0., err.as_ptr(), err.len()),
         };
 
         Self {
             total_mem: value.0,
-            ops,
+            alloc_avg_t,
+            access_seq_avg_t,
+            access_rand_avg_t,
+            access_concurr_avg_t,
+            score,
 
             err,
             err_len,
         }
-    }
-}
-
-impl Score for ram::alloc::Report {
-    fn score(&self) -> f64 {
-        inv_t_score(self.avg_t)
-    }
-}
-
-impl Score for ram::access::Report {
-    fn score(&self) -> f64 {
-        let seq = inv_t_score(self.seq_avg_t);
-        let rand = inv_t_score(self.rand_avg_t);
-        let concurr = inv_t_score(self.concurr_avg_t);
-
-        (seq + rand + concurr) / 3.
-    }
-}
-
-impl Score for (Option<ram::alloc::Report>, Option<ram::access::Report>) {
-    fn score(&self) -> f64 {
-        let alloc = unpack_report!(self.0, m(score: 0.));
-        let access = unpack_report!(self.1, m(score: 0.));
-
-        (alloc + access) / 2.
     }
 }
 
@@ -441,37 +450,39 @@ impl_from_storage_config!(
 
 type StorageCombinedReports = Option<storage::access::Report>;
 
+macro_rules! unpack_storage_report {
+    ($rep:expr, $($val:ident),*) => {
+        unpack_report!($rep, $(($val: Duration::ZERO)),*)
+    };
+    ($rep:expr) => {
+        unpack_storage_report!($rep, avg_t)
+    }
+}
+
 impl From<(u64, Result<StorageCombinedReports, String>)> for StorageReport {
     fn from(value: (u64, Result<StorageCombinedReports, String>)) -> Self {
-        let (ops, err, err_len) = match value.1 {
-            Ok(access_report) => (access_report.score(), null(), 0),
-            Err(err) => (0., err.as_ptr(), err.len()),
+        let (access_seq_avg_t, access_rand_avg_t, score, err, err_len) = match value.1 {
+            Ok(access_report) => {
+                let (access_seq_avg_t, access_rand_avg_t) = unpack_storage_report!(access_report, seq_avg_t, rand_avg_t);
+                let score = (
+                    inv_t_score(access_seq_avg_t) +
+                    inv_t_score(access_rand_avg_t)
+                ) / 2.;
+
+                (access_seq_avg_t.as_secs_f64(), access_rand_avg_t.as_secs_f64(), score, null(), 0)
+            },
+            Err(err) => (0., 0., 0., err.as_ptr(), err.len()),
         };
 
         Self {
             avail_storage: value.0,
-            ops,
+            access_seq_avg_t,
+            access_rand_avg_t,
+            score,
 
             err,
             err_len,
         }
-    }
-}
-
-impl Score for storage::access::Report {
-    fn score(&self) -> f64 {
-        let seq = inv_t_score(self.seq_avg_t);
-        let rand = inv_t_score(self.rand_avg_t);
-
-        (seq + rand) / 2.
-    }
-}
-
-impl Score for Option<storage::access::Report> {
-    fn score(&self) -> f64 {
-        let access = unpack_report!(self, m(score: 0.));
-
-        access
     }
 }
 
