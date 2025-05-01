@@ -258,7 +258,7 @@ impl From<TypedU64> for AuxvalMask {
 
 fn inv_t_score(score_t: Duration) -> f64 {
     let secs = score_t.as_secs_f64();
-    if secs <= 0. {
+    if secs == 0. {
         0.
     } else {
         1. / secs
@@ -272,6 +272,29 @@ macro_rules! unpack_report {
             None => ($($def),*),
         }
     }};
+}
+
+macro_rules! score {
+    ($(($rep:expr => $($val:ident $(: $map:ident)?),*)),*) => {{
+        let mut sum = 0.;
+        let mut count = 0.;
+        $(
+            $(
+                if let Some(rep) = &$rep {
+                    sum += score!(@apply_map rep.$val $(, $map)?);
+                    count += 1.;
+                };
+            )*
+        )*
+        
+        sum / count
+    }};
+    (@apply_map $val:expr, $map:ident) => {
+        $map($val)
+    };
+    (@apply_map $val:expr) => {
+        $val
+    };
 }
 
 macro_rules! impl_from_cpu_config {
@@ -311,6 +334,12 @@ macro_rules! unpack_cpu_report {
     };
 }
 
+macro_rules! score_cpu {
+    ($($rep:expr),*) => {
+        score!($(($rep => tps)),*)
+    };
+}
+
 impl From<Result<CpuCombinedReports, String>> for CpuReport {
     fn from(value: Result<CpuCombinedReports, String>) -> Self {
         let (crypto_tps, math_tps, sort_tps, score, err, err_len) = match value {
@@ -318,7 +347,7 @@ impl From<Result<CpuCombinedReports, String>> for CpuReport {
                 let crypto_tps = unpack_cpu_report!(crypto_report);
                 let math_tps = unpack_cpu_report!(math_report);
                 let sort_tps = unpack_cpu_report!(sort_report);
-                let score = (crypto_tps + math_tps + sort_tps) / 3.;
+                let score = score_cpu!(crypto_report, math_report, sort_report);
 
                 (crypto_tps, math_tps, sort_tps, score, null(), 0)
             },
@@ -382,6 +411,12 @@ macro_rules! unpack_ram_report {
     }
 }
 
+macro_rules! score_ram {
+    ($(($rep:expr => $($val:ident),*)),*) => {
+        score!($(($rep => $($val: inv_t_score),*)),*)
+    };
+}
+
 impl From<(u64, Result<RamCombinedReports, String>)> for RamReport {
     fn from(value: (u64, Result<RamCombinedReports, String>)) -> Self {
         let (alloc_avg_t, access_seq_avg_t, access_rand_avg_t, access_concurr_avg_t, score, err, err_len) = match value.1 {
@@ -393,12 +428,10 @@ impl From<(u64, Result<RamCombinedReports, String>)> for RamReport {
                     rand_avg_t,
                     concurr_avg_t
                 );
-                let score = (
-                    inv_t_score(alloc_avg_t) +
-                    inv_t_score(access_seq_avg_t) +
-                    inv_t_score(access_rand_avg_t) +
-                    inv_t_score(access_concurr_avg_t)
-                ) / 4.;
+                let score = score_ram!(
+                    (alloc_report => avg_t),
+                    (access_report => seq_avg_t, rand_avg_t, concurr_avg_t)
+                );
 
                 (alloc_avg_t.as_secs_f64(), access_seq_avg_t.as_secs_f64(), access_rand_avg_t.as_secs_f64(), access_concurr_avg_t.as_secs_f64(), score, null(), 0)
             },
@@ -459,15 +492,20 @@ macro_rules! unpack_storage_report {
     }
 }
 
+macro_rules! score_storage {
+    ($(($rep:expr => $($val:ident),*)),*) => {
+        score!($(($rep => $($val: inv_t_score),*)),*)
+    };
+}
+
 impl From<(u64, Result<StorageCombinedReports, String>)> for StorageReport {
     fn from(value: (u64, Result<StorageCombinedReports, String>)) -> Self {
         let (access_seq_avg_t, access_rand_avg_t, score, err, err_len) = match value.1 {
             Ok(access_report) => {
                 let (access_seq_avg_t, access_rand_avg_t) = unpack_storage_report!(access_report, seq_avg_t, rand_avg_t);
-                let score = (
-                    inv_t_score(access_seq_avg_t) +
-                    inv_t_score(access_rand_avg_t)
-                ) / 2.;
+                let score = score_storage!(
+                    (access_report => seq_avg_t, rand_avg_t)
+                );
 
                 (access_seq_avg_t.as_secs_f64(), access_rand_avg_t.as_secs_f64(), score, null(), 0)
             },
