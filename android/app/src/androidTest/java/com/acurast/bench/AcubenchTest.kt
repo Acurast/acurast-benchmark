@@ -41,11 +41,13 @@ class AcubenchTest {
             assert(cpuReport.cryptoTps > 0)
             assert(cpuReport.mathTps > 0)
             assert(cpuReport.sortTps > 0)
+            assert(cpuReport.score > 0)
 
             val cpuMultithreadReport = acubench.cpuMultithread()
             assert(cpuMultithreadReport.cryptoTps > 0)
             assert(cpuMultithreadReport.mathTps > 0)
             assert(cpuMultithreadReport.sortTps > 0)
+            assert(cpuMultithreadReport.score > 0)
 
             val ramReport = acubench.ram()
             assert(ramReport.totalMemory > 0)
@@ -53,11 +55,13 @@ class AcubenchTest {
             assert(ramReport.accessSequentialAvgTime > 0)
             assert(ramReport.accessRandomAvgTime > 0)
             assert(ramReport.accessConcurrentAvgTime > 0)
+            assert(ramReport.score > 0)
 
             val storageReport = acubench.storage(context)
             assert(storageReport.availableStorage > 0)
             assert(storageReport.accessSequentialAvgTime > 0)
             assert(storageReport.accessRandomAvgTime > 0)
+            assert(storageReport.score > 0)
 
             println("cpu (singlecore) $cpuReport")
             println("cpu (multicore) $cpuMultithreadReport")
@@ -77,6 +81,7 @@ class AcubenchTest {
             assert(report.cryptoTps > 0)
             assert(report.mathTps > 0)
             assert(report.sortTps > 0)
+            assert(report.score > 0)
         }
 
         assert(time <= duration + 1.seconds)
@@ -91,6 +96,7 @@ class AcubenchTest {
             assert(report.cryptoTps > 0)
             assert(report.mathTps > 0)
             assert(report.sortTps > 0)
+            assert(report.score > 0)
         }
 
         assert(time <= duration + 1.seconds)
@@ -105,6 +111,7 @@ class AcubenchTest {
         assert(report.accessSequentialAvgTime > 0)
         assert(report.accessRandomAvgTime > 0)
         assert(report.accessConcurrentAvgTime > 0)
+        assert(report.score > 0)
     }
 
     @Test
@@ -114,5 +121,6 @@ class AcubenchTest {
         assert(report.availableStorage > 0)
         assert(report.accessSequentialAvgTime > 0)
         assert(report.accessRandomAvgTime > 0)
+        assert(report.score > 0)
     }
 }
