@@ -43,8 +43,7 @@ extern "C" {
         double sort_tps;
         double score;
 
-        const char *err;
-        size_t err_len;
+        char *err;
     };
 
     CpuReport* bench_cpu(void *bench, CpuConfig config);
@@ -73,8 +72,7 @@ extern "C" {
         double access_con_avg_t;
         double score;
 
-        const char *err;
-        size_t err_len;
+        char *err;
     };
 
     RamReport* bench_ram(void *bench, RamConfig config);
@@ -97,8 +95,7 @@ extern "C" {
         double access_rand_avg_t;
         double score;
 
-        const char *err;
-        size_t err_len;
+        char *err;
     };
 
     StorageReport* bench_storage(void *bench, StorageConfig config);

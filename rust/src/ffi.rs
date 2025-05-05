@@ -1,4 +1,4 @@
-use std::{fmt::Debug, ptr::null, time::Duration};
+use std::{ffi::CString, fmt::Debug, ptr::null_mut, time::Duration};
 
 use crate::{
     arm::{Auxval, AuxvalMask},
@@ -44,7 +44,7 @@ macro_rules! bench {
         match (&$config).into() {
             Some(config) => Some($bench.$mod.$typ(config)),
             None => None,
-        }.transpose().map_err(err_to_string)
+        }.transpose().map_err(err_to_cstring)
     }};
 }
 
@@ -67,8 +67,7 @@ pub struct CpuReport {
     sort_tps: f64,
     score: f64,
 
-    err: *const u8,
-    err_len: usize,
+    err: *mut u8,
 }
 
 #[no_mangle]
@@ -79,7 +78,7 @@ pub extern "C" fn bench_cpu(bench: *mut Bench, config: CpuConfig) -> *const CpuR
     Box::into_raw(Box::new(report.into()))
 }
 
-fn __bench_cpu(bench: &mut Bench, config: CpuConfig) -> Result<CpuCombinedReports, String> {
+fn __bench_cpu(bench: &mut Bench, config: CpuConfig) -> Result<CpuCombinedReports, CString> {
     let crypto_report = bench!(bench, cpu, crypto, config)?;
     let math_report = bench!(bench, cpu, math, config)?;
     let sort_report = bench!(bench, cpu, sort, config)?;
@@ -101,7 +100,7 @@ pub extern "C" fn bench_cpu_multithread(bench: *mut Bench, config: CpuConfig) ->
     Box::into_raw(Box::new(report.into()))
 }
 
-fn __bench_cpu_multithread(bench: &mut Bench, config: CpuConfig) -> Result<CpuCombinedReports, String> {
+fn __bench_cpu_multithread(bench: &mut Bench, config: CpuConfig) -> Result<CpuCombinedReports, CString> {
     let crypto_report = bench!(bench, cpu, crypto_multithread, config)?;
     let math_report = bench!(bench, cpu, math_multithread, config)?;
     let sort_report = bench!(bench, cpu, sort_multithread, config)?;
@@ -119,7 +118,7 @@ fn __bench_cpu_multithread(bench: &mut Bench, config: CpuConfig) -> Result<CpuCo
 pub extern "C" fn drop_cpu_report(report: *const CpuReport) {
     unsafe {
         let report = Box::from_raw(report as *mut CpuReport);
-        drop_string(report.err, report.err_len);
+        drop_string(report.err);
 
         drop(report);
     }
@@ -149,8 +148,7 @@ pub struct RamReport {
     access_concurr_avg_t: f64,
     score: f64,
 
-    err: *const u8,
-    err_len: usize,
+    err: *mut u8,
 }
 
 #[no_mangle]
@@ -166,7 +164,7 @@ pub extern "C" fn bench_ram(bench: *mut Bench, config: RamConfig) -> *const RamR
     Box::into_raw(Box::new(report.into()))
 }
 
-fn __bench_ram(bench: &mut Bench, config: RamConfig) -> Result<RamCombinedReports, String> {
+fn __bench_ram(bench: &mut Bench, config: RamConfig) -> Result<RamCombinedReports, CString> {
     let alloc_report = bench!(bench, ram, alloc, config)?;
     let access_report = bench!(bench, ram, access, config)?;
 
@@ -179,7 +177,7 @@ fn __bench_ram(bench: &mut Bench, config: RamConfig) -> Result<RamCombinedReport
 pub extern "C" fn drop_ram_report(report: *const RamReport) {
     unsafe {
         let report = Box::from_raw(report as *mut RamReport);
-        drop_string(report.err, report.err_len);
+        drop_string(report.err);
 
         drop(report);
     }
@@ -204,8 +202,7 @@ pub struct StorageReport {
     access_rand_avg_t: f64,
     score: f64,
 
-    err: *const u8,
-    err_len: usize,
+    err: *mut u8,
 }
 
 #[no_mangle]
@@ -221,7 +218,7 @@ pub extern "C" fn bench_storage(bench: *mut Bench, config: StorageConfig) -> *co
     Box::into_raw(Box::new(report.into()))
 }
 
-fn __bench_storage(bench: &mut Bench, config: StorageConfig) -> Result<StorageCombinedReports, String> {
+fn __bench_storage(bench: &mut Bench, config: StorageConfig) -> Result<StorageCombinedReports, CString> {
     let access_report = bench!(bench, storage, access, config)?;
 
     let report = access_report;
@@ -233,15 +230,15 @@ fn __bench_storage(bench: &mut Bench, config: StorageConfig) -> Result<StorageCo
 pub extern "C" fn drop_storage_report(report: *const StorageReport) {
     unsafe {
         let report = Box::from_raw(report as *mut StorageReport);
-        drop_string(report.err, report.err_len);
+        drop_string(report.err);
 
         drop(report);
     }
 }
 
-unsafe fn drop_string(ptr: *const u8, len: usize) {
+unsafe fn drop_string(ptr: *mut u8) {
     if !ptr.is_null() {
-        let str = String::from_raw_parts(ptr as *mut u8, len, len);
+        let str = CString::from_raw(ptr);
         drop(str)
     }
 }
@@ -344,18 +341,18 @@ macro_rules! score_cpu {
     };
 }
 
-impl From<Result<CpuCombinedReports, String>> for CpuReport {
-    fn from(value: Result<CpuCombinedReports, String>) -> Self {
-        let (crypto_tps, math_tps, sort_tps, score, err, err_len) = match value {
+impl From<Result<CpuCombinedReports, CString>> for CpuReport {
+    fn from(value: Result<CpuCombinedReports, CString>) -> Self {
+        let (crypto_tps, math_tps, sort_tps, score, err) = match value {
             Ok((crypto_report, math_report, sort_report)) => {
                 let crypto_tps = unpack_cpu_report!(crypto_report);
                 let math_tps = unpack_cpu_report!(math_report);
                 let sort_tps = unpack_cpu_report!(sort_report);
                 let score = score_cpu!(crypto_report, math_report, sort_report);
 
-                (crypto_tps, math_tps, sort_tps, score, null(), 0)
+                (crypto_tps, math_tps, sort_tps, score, null_mut())
             },
-            Err(err) => (0., 0., 0., 0., err.as_ptr(), err.len()),
+            Err(err) => (0., 0., 0., 0., err.into_raw()),
         };
 
         Self {
@@ -365,7 +362,6 @@ impl From<Result<CpuCombinedReports, String>> for CpuReport {
             score,
 
             err,
-            err_len,
         }
     }
 }
@@ -421,9 +417,9 @@ macro_rules! score_ram {
     };
 }
 
-impl From<(u64, Result<RamCombinedReports, String>)> for RamReport {
-    fn from(value: (u64, Result<RamCombinedReports, String>)) -> Self {
-        let (alloc_avg_t, access_seq_avg_t, access_rand_avg_t, access_concurr_avg_t, score, err, err_len) = match value.1 {
+impl From<(u64, Result<RamCombinedReports, CString>)> for RamReport {
+    fn from(value: (u64, Result<RamCombinedReports, CString>)) -> Self {
+        let (alloc_avg_t, access_seq_avg_t, access_rand_avg_t, access_concurr_avg_t, score, err) = match value.1 {
             Ok((alloc_report, access_report)) => {
                 let alloc_avg_t = unpack_ram_report!(alloc_report);
                 let (access_seq_avg_t, access_rand_avg_t, access_concurr_avg_t) = unpack_ram_report!(
@@ -437,9 +433,9 @@ impl From<(u64, Result<RamCombinedReports, String>)> for RamReport {
                     (access_report => seq_avg_t, rand_avg_t, concurr_avg_t)
                 );
 
-                (alloc_avg_t.as_secs_f64(), access_seq_avg_t.as_secs_f64(), access_rand_avg_t.as_secs_f64(), access_concurr_avg_t.as_secs_f64(), score, null(), 0)
+                (alloc_avg_t.as_secs_f64(), access_seq_avg_t.as_secs_f64(), access_rand_avg_t.as_secs_f64(), access_concurr_avg_t.as_secs_f64(), score, null_mut())
             },
-            Err(err) => (0., 0., 0., 0., 0., err.as_ptr(), err.len()),
+            Err(err) => (0., 0., 0., 0., 0., err.into_raw()),
         };
 
         Self {
@@ -451,7 +447,6 @@ impl From<(u64, Result<RamCombinedReports, String>)> for RamReport {
             score,
 
             err,
-            err_len,
         }
     }
 }
@@ -502,18 +497,18 @@ macro_rules! score_storage {
     };
 }
 
-impl From<(u64, Result<StorageCombinedReports, String>)> for StorageReport {
-    fn from(value: (u64, Result<StorageCombinedReports, String>)) -> Self {
-        let (access_seq_avg_t, access_rand_avg_t, score, err, err_len) = match value.1 {
+impl From<(u64, Result<StorageCombinedReports, CString>)> for StorageReport {
+    fn from(value: (u64, Result<StorageCombinedReports, CString>)) -> Self {
+        let (access_seq_avg_t, access_rand_avg_t, score, err) = match value.1 {
             Ok(access_report) => {
                 let (access_seq_avg_t, access_rand_avg_t) = unpack_storage_report!(access_report, seq_avg_t, rand_avg_t);
                 let score = score_storage!(
                     (access_report => seq_avg_t, rand_avg_t)
                 );
 
-                (access_seq_avg_t.as_secs_f64(), access_rand_avg_t.as_secs_f64(), score, null(), 0)
+                (access_seq_avg_t.as_secs_f64(), access_rand_avg_t.as_secs_f64(), score, null_mut())
             },
-            Err(err) => (0., 0., 0., err.as_ptr(), err.len()),
+            Err(err) => (0., 0., 0., err.into_raw()),
         };
 
         Self {
@@ -523,11 +518,13 @@ impl From<(u64, Result<StorageCombinedReports, String>)> for StorageReport {
             score,
 
             err,
-            err_len,
         }
     }
 }
 
-fn err_to_string<E: Debug>(err: E) -> String {
-    format!("{err:?}")
+fn err_to_cstring<E: Debug>(err: E) -> CString {
+    let str = format!("{err:?}");
+    let str = str.replace("\0", "");
+
+    CString::new(str).unwrap()
 }
