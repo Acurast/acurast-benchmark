@@ -19,6 +19,7 @@ pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, E
     Ok(report_builder.build())
 }
 
+#[allow(clippy::slow_vector_initialization)]
 fn run_test(n: usize) -> Result<(), Error> {
     let mut data = Vec::with_capacity(n);
     data.resize(n, 0u8);
@@ -100,7 +101,7 @@ mod tests {
             }
         );
 
-        assert_eq!(true, result.is_ok(), "expected success");
+        assert!(result.is_ok(), "expected success");
         let result = result.unwrap();
         assert!(result.avg_t > Duration::ZERO);
 

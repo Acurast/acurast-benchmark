@@ -59,11 +59,11 @@ mod sequential {
     use super::*;
 
     pub(super) fn run_test(data: &mut [u8]) -> Result<(), Error> {
-        for i in 0..data.len() {
-            data[i] = (i % 256) as u8;
+        for (i, v) in data.iter_mut().enumerate() {
+            *v = (i % 256) as u8;
         }
-        for i in 0..data.len() {
-            let v = data[i];
+
+        for (i, &v) in data.iter().enumerate() {
             let expected = (i % 256) as u8;
             if v != expected {
                 return Err(Error::InvalidValue(expected, v));
@@ -106,11 +106,10 @@ mod concurrent {
         chunks
             .into_par_iter()
             .map(|data| {
-                for i in 0..data.len() {
-                    data[i] = (i % 256) as u8;
+                for (i, v) in data.iter_mut().enumerate() {
+                    *v = (i % 256) as u8;
                 }
-                for i in 0..data.len() {
-                    let v = data[i];
+                for (i, &v) in data.iter().enumerate() {
                     let expected = (i % 256) as u8;
                     if v != expected {
                         return Err(Error::InvalidValue(expected, v));
