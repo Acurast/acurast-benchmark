@@ -34,7 +34,7 @@ add_library(${ACUBENCH} SHARED
         src/acubench.cpp
 
         src/ffi.h
-        src/ffi.cpp)
+)
 
 add_library(acubench-ffi SHARED IMPORTED)
 set_target_properties(acubench-ffi PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/libs/${ANDROID_ABI}/libacubench_ffi.a)

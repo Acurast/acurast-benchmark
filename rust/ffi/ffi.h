@@ -39,16 +39,12 @@ extern "C" {
 
     struct CpuReport {
         double crypto_tps;
-        const char *crypto_err;
-        size_t crypto_err_len;
-
         double math_tps;
-        const char *math_err;
-        size_t math_err_len;
-
         double sort_tps;
-        const char *sort_err;
-        size_t sort_err_len;
+        double score;
+
+        const char *err;
+        size_t err_len;
     };
 
     CpuReport* bench_cpu(void *bench, CpuConfig config);
@@ -71,16 +67,14 @@ extern "C" {
 
     struct RamReport {
         uint64_t total_mem;
-
         double alloc_avg_t;
-        const char *alloc_err;
-        size_t alloc_err_len;
-
         double access_seq_avg_t;
         double access_rand_avg_t;
         double access_con_avg_t;
-        const char *access_err;
-        size_t access_err_len;
+        double score;
+
+        const char *err;
+        size_t err_len;
     };
 
     RamReport* bench_ram(void *bench, RamConfig config);
@@ -99,11 +93,12 @@ extern "C" {
 
     struct StorageReport {
         uint64_t avail_storage;
-
         double access_seq_avg_t;
         double access_rand_avg_t;
-        const char *access_err;
-        size_t access_err_len;
+        double score;
+
+        const char *err;
+        size_t err_len;
     };
 
     StorageReport* bench_storage(void *bench, StorageConfig config);

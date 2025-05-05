@@ -150,6 +150,7 @@ public class Acubench(context: Context) {
         val cryptoTps: Double,
         val mathTps: Double,
         val sortTps: Double,
+        val score: Double,
     ) {
         public companion object
     }
@@ -208,6 +209,7 @@ public class Acubench(context: Context) {
         val accessSequentialAvgTime: Double,
         val accessRandomAvgTime: Double,
         val accessConcurrentAvgTime: Double,
+        val score: Double,
     ) {
         public companion object
     }
@@ -249,6 +251,7 @@ public class Acubench(context: Context) {
         val availableStorage: Long,
         val accessSequentialAvgTime: Double,
         val accessRandomAvgTime: Double,
+        val score: Double,
     ) {
         public companion object
     }
