@@ -300,7 +300,7 @@ impl Context {
     }
 
     fn random_offsets(&mut self, size: usize) -> Vec<u64> {
-        (0..size)
+        (0..(size + 1))
             .map(|_| self.rng.gen_range(0..self.rand_size_mb) as u64 * MB as u64)
             .collect()
     }
