@@ -119,6 +119,14 @@ extern "C" {
         size_t timeout_timestamp
     );
 
+    Ops matrix_mul_naive(
+        const int8_t *matrix_a,
+        const int8_t *matrix_b,
+        int32_t *matrix_r,
+        size_t n,
+        size_t timeout_timestamp
+    );
+
 #ifdef __cplusplus
 };
 #endif //__cplusplus

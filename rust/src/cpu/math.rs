@@ -20,12 +20,13 @@ pub(crate) fn bench(features: &CpuFeatures, config: Config) -> Result<Report, Er
         context.reset_imatrices();
 
         start = Instant::now();
-        let ops = if features.i8mm && features.sve {
+        let ops = if context.simd {
             black_box(matrix::run_test_simd(
                 &context.matrix_a_i8[..],
                 &context.matrix_b_i8[..],
                 &mut context.matrix_r_i32[..],
                 context.n,
+                features,
                 Some(&context.timeout),
             ))
         } else {
@@ -112,6 +113,14 @@ extern "C" {
         n: usize,
         timeout_timestamp: usize,
     ) -> Ops;
+
+    fn matrix_mul_naive(
+        matrix_a: *const i8,
+        matrix_b: *const i8,
+        matrix_r: *mut i32,
+        n: usize,
+        timeout_timestamp: usize,
+    ) -> Ops;
 }
 
 #[repr(C)]
@@ -183,6 +192,7 @@ mod matrix {
         matrix_b: &[i8],
         matrix_r: &mut [i32],
         n: usize,
+        features: &CpuFeatures,
         timeout: Option<&Timeout>,
     ) -> Result<u64, u64> {
         let timeout = match timeout {
@@ -199,20 +209,30 @@ mod matrix {
         };
 
         let result = unsafe {
-            // `matrix_mul_i8mm` expects a transposed `matrix_b`,
-            // however, in this test we care only for the correctness of the algorithm
-            // and the number of arithmetic operations performed in the process,
-            // not the validity of the results. Additionally, the test executes on a new
-            // set of random data every time, which makes the results completely non-deterministic
-            // and not comparable between run and different machines running it.
-            // Therefore, we can skip the matrix transformation and use `matrix_b` as it is.
-            matrix_mul_sve_i8mm(
-                matrix_a.as_ptr(),
-                matrix_b.as_ptr(),
-                matrix_r.as_mut_ptr(),
-                n,
-                timeout,
-            )
+            if features.i8mm && features.sve {
+                // `matrix_mul_sve_i8mm` expects a transposed `matrix_b`,
+                // however, in this test we care only for the correctness of the algorithm
+                // and the number of arithmetic operations performed in the process,
+                // not the validity of the results. Additionally, the test executes on a new
+                // set of random data every time, which makes the results completely non-deterministic
+                // and not comparable between run and different machines running it.
+                // Therefore, we can skip the matrix transformation and use `matrix_b` as it is.
+                matrix_mul_sve_i8mm(
+                    matrix_a.as_ptr(),
+                    matrix_b.as_ptr(),
+                    matrix_r.as_mut_ptr(),
+                    n,
+                    timeout,
+                )
+            } else {
+                matrix_mul_naive(
+                    matrix_a.as_ptr(),
+                    matrix_b.as_ptr(),
+                    matrix_r.as_mut_ptr(),
+                    n,
+                    timeout,
+                )
+            }
         };
         if result.ok > 0 {
             Ok(result.ok)
@@ -304,8 +324,9 @@ pub struct Config {
     pub rng: Box<dyn rand::RngCore>,
 
     pub duration: Duration,
-
     pub n: usize,
+
+    pub simd: bool,
 }
 
 impl Default for Config {
@@ -314,6 +335,7 @@ impl Default for Config {
             rng: Box::new(rand::thread_rng()),
             duration: Duration::from_secs(10),
             n: 4096,
+            simd: true,
         }
     }
 }
@@ -377,6 +399,8 @@ struct Context {
     matrix_b_f32: Vec<f32>,
     matrix_r_f32: Vec<f32>,
 
+    simd: bool,
+
     timeout: Timeout,
 }
 
@@ -418,6 +442,7 @@ impl Context {
             matrix_a_f32,
             matrix_b_f32,
             matrix_r_f32,
+            simd: config.simd,
             timeout,
         }
     }
@@ -587,6 +612,17 @@ mod tests {
 
     #[no_mangle]
     extern "C" fn matrix_mul_sve_i8mm(
+        _matrix_a: *const i8,
+        _matrix_b: *const i8,
+        _matrix_r: *mut i32,
+        _n: usize,
+        _timeout_timestamp: usize,
+    ) -> Ops {
+        Ops { ok: 0, err: 0 }
+    }
+
+    #[no_mangle]
+    extern "C" fn matrix_mul_naive(
         _matrix_a: *const i8,
         _matrix_b: *const i8,
         _matrix_r: *mut i32,
