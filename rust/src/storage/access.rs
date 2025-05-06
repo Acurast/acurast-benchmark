@@ -45,7 +45,7 @@ pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, E
 
     for _ in 0..context.rand_iters {
         let mut file = context.open_file().map_err(Error::IO)?;
-        for _ in 0..context.seq_size_mb {
+        for _ in 0..context.rand_size_mb {
             file.write_all(&context.write_buf_mb)
                 .map_err(Error::IO)?;
         }
@@ -301,7 +301,7 @@ impl Context {
 
     fn random_offsets(&mut self, size: usize) -> Vec<u64> {
         (0..size)
-            .map(|_| self.rng.gen_range(0..self.rand_size_mb) as u64 * MB as u64)
+            .map(|_| self.rng.gen_range(0..((size - 1) * MB)) as u64)
             .collect()
     }
 }
