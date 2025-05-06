@@ -62,13 +62,14 @@ extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_acurast_bench_Acubench__1_1cpu_1_1(JNIEnv *env, jobject thiz, jlong ptr,
                                             jlong crypto_duration, jlong crypto_data_len,
-                                            jlong math_duration, jlong math_data_len,
+                                            jlong math_duration, jlong math_data_len, jboolean math_simd,
                                             jlong sort_duration, jlong sort_data_len) {
     auto report = bench_cpu((void *) ptr, CpuConfig{
         .crypto_duration = (size_t) crypto_duration,
         .crypto_data_len = (size_t) crypto_data_len,
         .math_duration = (size_t) math_duration,
         .math_data_len = (size_t) math_data_len,
+        .math_simd = math_simd == JNI_TRUE,
         .sort_duration = (size_t) sort_duration,
         .sort_data_len = (size_t) sort_data_len
     });
