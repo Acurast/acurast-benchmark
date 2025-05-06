@@ -2,6 +2,7 @@
 #define ACUBENCH_FFI_H
 
 #include <cstdint>
+#include <stdbool.h>
 #include <stddef.h>
 
 #ifdef __cplusplus
@@ -32,6 +33,7 @@ extern "C" {
 
         size_t math_duration;
         size_t math_data_len;
+        bool math_simd;
 
         size_t sort_duration;
         size_t sort_data_len;
