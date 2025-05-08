@@ -58,7 +58,9 @@ impl Bench {
     pub fn all(&self, config: Config) -> Result<Report, Error> {
         Ok(Report {
             cpu: self.cpu(config.cpu).map_err(Error::Cpu)?,
-            cpu_multithread: self.cpu_multithread(config.cpu_multithread).map_err(Error::Cpu)?,
+            cpu_multithread: self
+                .cpu_multithread(config.cpu_multithread)
+                .map_err(Error::Cpu)?,
             ram: self.ram(config.ram).map_err(Error::Ram)?,
             storage: self.storage(config.storage).map_err(Error::Storage)?,
         })
@@ -197,11 +199,7 @@ mod tests {
         let iters = 5;
         let data_len = 64;
         let result = bench.ram(ram::Config {
-            alloc: ram::alloc::Config {
-                iters,
-                data_len,
-                ..Default::default()
-            },
+            alloc: ram::alloc::Config { iters, data_len },
             access: ram::access::Config {
                 seq_iters: iters,
                 seq_data_len: data_len,
