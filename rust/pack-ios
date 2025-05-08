@@ -1,0 +1,15 @@
+#!/bin/bash
+
+mkdir ../ios/AcurastBenchmark/AcurastBenchmarkFFI.xcframework/ios-arm64
+mkdir ../ios/AcurastBenchmark/AcurastBenchmarkFFI.xcframework/ios-arm64/Headers
+
+mkdir ../ios/AcurastBenchmark/AcurastBenchmarkFFI.xcframework/ios-arm64_x86_64-simulator
+mkdir ../ios/AcurastBenchmark/AcurastBenchmarkFFI.xcframework/ios-arm64_x86_64-simulator/Headers
+
+mv ./AcurastBenchmark/AcurastBenchmarkFFI.xcframework/ios-arm64/libacubench.a ../ios/AcurastBenchmark/AcurastBenchmarkFFI.xcframework/ios-arm64/libacubench.a
+cp ./ffi/ffi.h ../ios/AcurastBenchmark/AcurastBenchmarkFFI.xcframework/ios-arm64/Headers/ffi.h
+
+mv ./AcurastBenchmark/AcurastBenchmarkFFI.xcframework/ios-arm64_x86_64-simulator/libacubench.a ../ios/AcurastBenchmark/AcurastBenchmarkFFI.xcframework/ios-arm64_x86_64-simulator/libacubench.a
+cp ./ffi/ffi.h ../ios/AcurastBenchmark/AcurastBenchmarkFFI.xcframework/ios-arm64_x86_64-simulator/Headers/ffi.h
+
+rm -rf ./AcurastBenchmark

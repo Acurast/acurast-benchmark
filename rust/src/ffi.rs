@@ -55,6 +55,7 @@ pub struct CpuConfig {
     
     math_duration: usize,
     math_data_len: usize,
+    math_simd: bool,
 
     sort_duration: usize,
     sort_data_len: usize,
@@ -302,13 +303,16 @@ macro_rules! score {
 }
 
 macro_rules! impl_from_cpu_config {
-    ($typ:ident, $duration:ident, ($src_data_len:ident : $tar_data_len:ident)) => {
+    ($typ:ident, $duration:ident, ($src_data_len:ident : $tar_data_len:ident) $(, ($src_extra:ident : $tar_extra:ident)),*) => {
         impl From<&CpuConfig> for Option<cpu::$typ::Config> {
             fn from(value: &CpuConfig) -> Self {
                 if value.$duration > 0 && value.$src_data_len > 0 {
                     Some(cpu::$typ::Config {
                         duration: Duration::from_millis(value.$duration as u64),
                         $tar_data_len: value.$src_data_len.try_into().unwrap(),
+                        $(
+                            $tar_extra: value.$src_extra,
+                        ),*
                         ..Default::default()
                     })
                 } else {
@@ -323,7 +327,7 @@ macro_rules! impl_from_cpu_config {
 }
 
 impl_from_cpu_config!(crypto, crypto_duration, crypto_data_len);
-impl_from_cpu_config!(math, math_duration, (math_data_len: n));
+impl_from_cpu_config!(math, math_duration, (math_data_len: n), (math_simd: simd));
 impl_from_cpu_config!(sort, sort_duration, sort_data_len);
 
 type CpuCombinedReports = (
