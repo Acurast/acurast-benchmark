@@ -1,3 +1,5 @@
+#![allow(clippy::uninit_vec)]
+
 use std::{fmt, rc::Rc};
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64", target_os = "ios"))]
@@ -121,18 +123,18 @@ mod tests {
                 duration,
                 data_len: 64,
                 ..Default::default()
-            }.into(),
+            },
             math: cpu::math::Config {
                 duration,
                 n: 10,
                 ..Default::default()
-            }.into(),
+            },
             sort: cpu::sort::Config {
                 duration,
                 item_len: 25,
                 data_len: 100_000,
                 ..Default::default()
-            }.into(),
+            },
         });
 
         assert!(result.is_ok(), "expected success");

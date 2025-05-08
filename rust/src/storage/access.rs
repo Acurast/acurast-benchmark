@@ -27,7 +27,7 @@ pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, E
 
     let mut start: Instant;
     for _ in 0..context.seq_iters {
-        let mut file = context.open_file().map_err(|err| Error::IO(err))?;
+        let mut file = context.open_file().map_err(Error::IO)?;
         context.reset_write_buf();
         context.reset_read_buf();
 
@@ -40,14 +40,14 @@ pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, E
         )?);
         report_builder.add_seq(start.elapsed());
 
-        remove_file(context.file_path.clone()).map_err(|err| Error::IO(err))?;
+        remove_file(context.file_path.clone()).map_err(Error::IO)?;
     }
 
     for _ in 0..context.rand_iters {
-        let mut file = context.open_file().map_err(|err| Error::IO(err))?;
-        for _ in 0..context.seq_size_mb {
-            file.write_all(&mut context.write_buf_mb)
-                .map_err(|err| Error::IO(err))?;
+        let mut file = context.open_file().map_err(Error::IO)?;
+        for _ in 0..context.rand_size_mb {
+            file.write_all(&context.write_buf_mb)
+                .map_err(Error::IO)?;
         }
         context.reset_write_buf();
         context.reset_read_buf();
@@ -65,7 +65,7 @@ pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, E
         )?);
         report_builder.add_rand(start.elapsed());
 
-        remove_file(context.file_path.clone()).map_err(|err| Error::IO(err))?;
+        remove_file(context.file_path.clone()).map_err(Error::IO)?;
     }
 
     let _ = remove_file(context.file_path.clone());
@@ -85,14 +85,14 @@ mod sequential {
         size_mb: usize,
     ) -> Result<(), Error> {
         for _ in 0..size_mb {
-            file.write_all(write_buf_mb).map_err(|err| Error::IO(err))?;
-            file.sync_all().map_err(|err| Error::IO(err))?;
+            file.write_all(write_buf_mb).map_err(Error::IO)?;
+            file.sync_all().map_err(Error::IO)?;
         }
 
-        file.rewind().map_err(|err| Error::IO(err))?;
+        file.rewind().map_err(Error::IO)?;
 
         for _ in 0..size_mb {
-            file.read_exact(read_buf_mb).map_err(|err| Error::IO(err))?;
+            file.read_exact(read_buf_mb).map_err(Error::IO)?;
             if write_buf_mb != read_buf_mb {
                 return Err(Error::InvalidData(
                     write_buf_mb.to_vec(),
@@ -119,15 +119,15 @@ mod random {
     ) -> Result<(), Error> {
         for &offset in write_offsets {
             file.seek(SeekFrom::Start(offset))
-                .map_err(|err| Error::IO(err))?;
-            file.write_all(write_buf_mb).map_err(|err| Error::IO(err))?;
-            file.sync_all().map_err(|err| Error::IO(err))?;
+                .map_err(Error::IO)?;
+            file.write_all(write_buf_mb).map_err(Error::IO)?;
+            file.sync_all().map_err(Error::IO)?;
         }
 
         for &offset in read_offsets {
             file.seek(SeekFrom::Start(offset))
-                .map_err(|err| Error::IO(err))?;
-            file.read_exact(read_buf_mb).map_err(|err| Error::IO(err))?;
+                .map_err(Error::IO)?;
+            file.read_exact(read_buf_mb).map_err(Error::IO)?;
 
             // there's no trivial way to verify if data is correctly read back,
             // skipping check
@@ -271,6 +271,7 @@ impl Context {
             .create(true)
             .write(true)
             .read(true)
+            .truncate(true)
             .open(self.file_path.clone())?;
 
         let fd = file.as_raw_fd();
@@ -300,7 +301,7 @@ impl Context {
 
     fn random_offsets(&mut self, size: usize) -> Vec<u64> {
         (0..size)
-            .map(|_| self.rng.gen_range(0..self.rand_size_mb) as u64 * MB as u64)
+            .map(|_| if size > 1 { self.rng.gen_range(0..((size - 1) * MB)) as u64 } else { 0 })
             .collect()
     }
 }

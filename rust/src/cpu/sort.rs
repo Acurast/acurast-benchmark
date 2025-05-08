@@ -121,7 +121,7 @@ mod merge {
     where
         T: Clone + PartialOrd + Send,
     {
-        threadpool.install(|| sort(data, temp, timeout, Some(&threadpool)))
+        threadpool.install(|| sort(data, temp, timeout, Some(threadpool)))
     }
 
     fn sort<T>(
@@ -145,7 +145,7 @@ mod merge {
         let (data_left, data_right) = data.split_at_mut(mid);
         let (temp_left, temp_right) = temp.split_at_mut(mid);
 
-        if let Some(_) = threadpool {
+        if threadpool.is_some() {
             let (left_ops, right_ops) = rayon::join(
                 || sort(data_left, temp_left, timeout, threadpool),
                 || sort(data_right, temp_right, timeout, threadpool),

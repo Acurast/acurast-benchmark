@@ -21,7 +21,7 @@ void throw_runtime_exception(JNIEnv *env, const char *message) {
     env->ThrowNew(clazz, message);
 }
 
-#define THROW_IF_ERR(ENV, REPORT) if (REPORT->err != nullptr && REPORT->err_len != 0) { \
+#define THROW_IF_ERR(ENV, REPORT) if (REPORT->err != nullptr) { \
     throw_runtime_exception(ENV, REPORT->err); \
 }
 
