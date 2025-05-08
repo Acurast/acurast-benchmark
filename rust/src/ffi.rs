@@ -2,6 +2,8 @@
 
 use std::{ffi::CString, fmt::Debug, ptr::null_mut, time::Duration};
 
+use libc::c_char;
+
 use crate::{
     arm::{Auxval, AuxvalMask},
     cpu, ram, storage, Bench,
@@ -70,7 +72,7 @@ pub struct CpuReport {
     sort_tps: f64,
     score: f64,
 
-    err: *mut u8,
+    err: *mut c_char,
 }
 
 #[no_mangle]
@@ -151,7 +153,7 @@ pub struct RamReport {
     access_concurr_avg_t: f64,
     score: f64,
 
-    err: *mut u8,
+    err: *mut c_char,
 }
 
 #[no_mangle]
@@ -205,7 +207,7 @@ pub struct StorageReport {
     access_rand_avg_t: f64,
     score: f64,
 
-    err: *mut u8,
+    err: *mut c_char,
 }
 
 #[no_mangle]
@@ -239,7 +241,7 @@ pub extern "C" fn drop_storage_report(report: *const StorageReport) {
     }
 }
 
-unsafe fn drop_string(ptr: *mut u8) {
+unsafe fn drop_string(ptr: *mut c_char) {
     if !ptr.is_null() {
         let str = CString::from_raw(ptr);
         drop(str)
