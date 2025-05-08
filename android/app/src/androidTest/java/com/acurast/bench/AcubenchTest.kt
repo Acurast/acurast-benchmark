@@ -63,10 +63,10 @@ class AcubenchTest {
             assert(storageReport.accessRandomAvgTime > 0)
             assert(storageReport.score == storageReport.expectedScore)
 
-            println("cpu (singlecore) $cpuReport")
-            println("cpu (multicore) $cpuMultithreadReport")
-            println("ram $ramReport")
-            println("storage $storageReport")
+            println(cpuReport.toPrettyString(descriptor = "Single-core"))
+            println(cpuMultithreadReport.toPrettyString(descriptor = "Multicore"))
+            println(ramReport.toPrettyString())
+            println(storageReport.toPrettyString())
         }
 
         println("time = $time")
@@ -74,7 +74,7 @@ class AcubenchTest {
 
     @Test
     fun testCpu() {
-        val duration = 9000.seconds
+        val duration = 9.seconds
         val time = measureTime {
             val report = acubench.cpu(Acubench.CpuConfig(duration = duration))
 
@@ -82,6 +82,25 @@ class AcubenchTest {
             assert(report.mathTps > 0)
             assert(report.sortTps > 0)
             assert(report.score == report.expectedScore)
+
+            println(report.toPrettyString(descriptor = "Single-core"))
+        }
+
+        assert(time <= duration + 1.seconds)
+    }
+
+    @Test
+    fun testCpuNoSimd() {
+        val duration = 9.seconds
+        val time = measureTime {
+            val report = acubench.cpu(Acubench.CpuConfig(duration = duration, mathSimd = false))
+
+            assert(report.cryptoTps > 0)
+            assert(report.mathTps > 0)
+            assert(report.sortTps > 0)
+            assert(report.score == report.expectedScore)
+
+            println(report.toPrettyString(descriptor = "Single-core, no SIMD"))
         }
 
         assert(time <= duration + 1.seconds)
@@ -97,6 +116,8 @@ class AcubenchTest {
             assert(report.mathTps > 0)
             assert(report.sortTps > 0)
             assert(report.score == report.expectedScore)
+
+            println(report.toPrettyString(descriptor = "Multicore"))
         }
 
         assert(time <= duration + 1.seconds)
@@ -112,6 +133,8 @@ class AcubenchTest {
         assert(report.accessRandomAvgTime > 0)
         assert(report.accessConcurrentAvgTime > 0)
         assert(report.score == report.expectedScore)
+
+        println(report.toPrettyString())
     }
 
     @Test
@@ -122,6 +145,8 @@ class AcubenchTest {
         assert(report.accessSequentialAvgTime > 0)
         assert(report.accessRandomAvgTime > 0)
         assert(report.score == report.expectedScore)
+
+        println(report.toPrettyString())
     }
 
     private val Acubench.CpuReport.expectedScore: Double

@@ -22,6 +22,7 @@ public class Acubench(context: Context) {
             config.cryptoDataSize,
             config.mathDuration.inWholeMilliseconds,
             config.mathDataSize,
+            config.mathSimd,
             config.sortDuration.inWholeMilliseconds,
             config.sortDataSize,
         )
@@ -89,6 +90,7 @@ public class Acubench(context: Context) {
         cryptoDataLen: Long,
         mathDuration: Long,
         mathDataLen: Long,
+        mathSimd: Boolean,
         sortDuration: Long,
         sortDataLen: Long,
     ): CpuReport
@@ -128,6 +130,7 @@ public class Acubench(context: Context) {
         val cryptoDataSize: Long = CRYPTO_DATA_SIZE_DEFAULT,
         val mathDuration: Duration = DURATION_DEFAULT,
         val mathDataSize: Long = MATH_DATA_SIZE_DEFAULT,
+        val mathSimd: Boolean = MATH_SIMD_DEFAULT,
         val sortDuration: Duration = DURATION_DEFAULT,
         val sortDataSize: Long = SORT_DATA_SIZE_DEFAULT,
     ) {
@@ -135,13 +138,15 @@ public class Acubench(context: Context) {
             duration: Duration = DURATION_DEFAULT,
             cryptoDataSize: Long = CRYPTO_DATA_SIZE_DEFAULT,
             mathDataSize: Long = MATH_DATA_SIZE_DEFAULT,
+            mathSimd: Boolean = MATH_SIMD_DEFAULT,
             sortDataSize: Long = SORT_DATA_SIZE_DEFAULT,
-        ) : this(duration, cryptoDataSize, duration, mathDataSize, duration, sortDataSize)
+        ) : this(duration, cryptoDataSize, duration, mathDataSize, mathSimd, duration, sortDataSize)
 
         public companion object {
             private val DURATION_DEFAULT = 1.seconds
             private const val CRYPTO_DATA_SIZE_DEFAULT = 10 * KB
             private const val MATH_DATA_SIZE_DEFAULT = 200L
+            private const val MATH_SIMD_DEFAULT = true
             private const val SORT_DATA_SIZE_DEFAULT = 100_000L
         }
     }
@@ -152,6 +157,15 @@ public class Acubench(context: Context) {
         val sortTps: Double,
         val score: Double,
     ) {
+        public fun toPrettyString(descriptor: String = "", precision: Int = PRECISION_DOUBLE_DEFAULT): String = """
+             CPU $descriptor
+             :::: crypto ${cryptoTps.format(precision)} ops/s
+             :::: math   ${mathTps.format(precision)} ops/s
+             :::: sort   ${sortTps.format(precision)} ops/s
+             ----
+             :::: score  ${score.format(precision)}
+        """.trimIndent()
+
         public companion object
     }
 
@@ -211,6 +225,18 @@ public class Acubench(context: Context) {
         val accessConcurrentAvgTime: Double,
         val score: Double,
     ) {
+        public fun toPrettyString(precision: Int = PRECISION_DOUBLE_DEFAULT): String = """
+            RAM
+            :::: total memory        ${totalMemory / 1024f / 1024f} GB
+            :::: alloc               ${allocAvgTime.format(precision)} s
+            :::: access (sequential) ${accessSequentialAvgTime.format(precision)} s
+            :::: access (random)     ${accessRandomAvgTime.format(precision)} s
+            :::: access (concurrent) ${accessConcurrentAvgTime.format(precision)} s
+            ----
+            :::: score               ${score.format(precision)}
+        """.trimIndent()
+
+
         public companion object
     }
 
@@ -253,6 +279,15 @@ public class Acubench(context: Context) {
         val accessRandomAvgTime: Double,
         val score: Double,
     ) {
+        public fun toPrettyString(precision: Int = PRECISION_DOUBLE_DEFAULT): String = """
+            Storage
+            :::: available           ${availableStorage / 1024f / 1024f} GB
+            :::: access (sequential) ${accessSequentialAvgTime.format(precision)} s
+            :::: access (random)     ${accessRandomAvgTime.format(precision)} s
+            ----
+            :::: score               ${score.format(precision)}
+        """.trimIndent()
+
         public companion object
     }
 
@@ -265,3 +300,6 @@ public class Acubench(context: Context) {
         }
     }
 }
+private const val PRECISION_DOUBLE_DEFAULT: Int = 10
+
+private fun Double.format(precision: Int = PRECISION_DOUBLE_DEFAULT): String = "%.${precision}f".format(this)

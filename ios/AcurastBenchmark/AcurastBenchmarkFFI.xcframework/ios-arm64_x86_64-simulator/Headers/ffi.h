@@ -2,6 +2,7 @@
 #define ACUBENCH_FFI_H
 
 #include <cstdint>
+#include <stdbool.h>
 #include <stddef.h>
 
 #ifdef __cplusplus
@@ -32,6 +33,7 @@ extern "C" {
 
         size_t math_duration;
         size_t math_data_len;
+        bool math_simd;
 
         size_t sort_duration;
         size_t sort_data_len;
@@ -39,16 +41,12 @@ extern "C" {
 
     struct CpuReport {
         double crypto_tps;
-        const char *crypto_err;
-        size_t crypto_err_len;
-
         double math_tps;
-        const char *math_err;
-        size_t math_err_len;
-
         double sort_tps;
-        const char *sort_err;
-        size_t sort_err_len;
+        double score;
+
+        const char *err;
+        size_t err_len;
     };
 
     CpuReport* bench_cpu(void *bench, CpuConfig config);
@@ -71,16 +69,14 @@ extern "C" {
 
     struct RamReport {
         uint64_t total_mem;
-
         double alloc_avg_t;
-        const char *alloc_err;
-        size_t alloc_err_len;
-
         double access_seq_avg_t;
         double access_rand_avg_t;
         double access_con_avg_t;
-        const char *access_err;
-        size_t access_err_len;
+        double score;
+
+        const char *err;
+        size_t err_len;
     };
 
     RamReport* bench_ram(void *bench, RamConfig config);
@@ -99,11 +95,12 @@ extern "C" {
 
     struct StorageReport {
         uint64_t avail_storage;
-
         double access_seq_avg_t;
         double access_rand_avg_t;
-        const char *access_err;
-        size_t access_err_len;
+        double score;
+
+        const char *err;
+        size_t err_len;
     };
 
     StorageReport* bench_storage(void *bench, StorageConfig config);
@@ -119,6 +116,14 @@ extern "C" {
     Ops matrix_mul_sve_i8mm(
         const int8_t *matrix_a,
         const int8_t *matrix_b /* transposed */,
+        int32_t *matrix_r,
+        size_t n,
+        size_t timeout_timestamp
+    );
+
+    Ops matrix_mul_naive(
+        const int8_t *matrix_a,
+        const int8_t *matrix_b,
         int32_t *matrix_r,
         size_t n,
         size_t timeout_timestamp

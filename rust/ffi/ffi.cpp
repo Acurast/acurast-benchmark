@@ -16,7 +16,7 @@
         int32_t *matrix_r,
         size_t n,
         size_t timeout_timestamp
-    )  {
+    ) {
         uint64_t ops = 0;
 
         uint64_t vl = svcntb();
@@ -54,3 +54,30 @@
         return {0, 0};
     }
 #endif //__aarch64__
+
+Ops matrix_mul_naive(
+    const int8_t *matrix_a,
+    const int8_t *matrix_b,
+    int32_t *matrix_r,
+    size_t n,
+    size_t timeout_timestamp
+) {
+    uint64_t ops = 0;
+
+    for (size_t i = 0; i < n; i++) {
+        for (size_t j = 0; j < n; j++) {
+            int32_t sum = 0;
+            for (size_t k = 0; k < n; k ++) {
+                if (timeout_timestamp > 0 && (time(nullptr) * 1000) >= timeout_timestamp) {
+                    return {0, ops};
+                }
+
+                sum += matrix_a[i * n + k] * matrix_b[k * n + j];
+                ops += 1;
+            }
+            matrix_r[i * n + j] = sum;
+        }
+    }
+    
+    return {ops, 0};
+}

@@ -2,6 +2,7 @@
 #define ACUBENCH_FFI_H
 
 #include <cstdint>
+#include <stdbool.h>
 #include <stddef.h>
 
 #ifdef __cplusplus
@@ -32,6 +33,7 @@ extern "C" {
 
         size_t math_duration;
         size_t math_data_len;
+        bool math_simd;
 
         size_t sort_duration;
         size_t sort_data_len;
@@ -114,6 +116,14 @@ extern "C" {
     Ops matrix_mul_sve_i8mm(
         const int8_t *matrix_a,
         const int8_t *matrix_b /* transposed */,
+        int32_t *matrix_r,
+        size_t n,
+        size_t timeout_timestamp
+    );
+
+    Ops matrix_mul_naive(
+        const int8_t *matrix_a,
+        const int8_t *matrix_b,
         int32_t *matrix_r,
         size_t n,
         size_t timeout_timestamp
