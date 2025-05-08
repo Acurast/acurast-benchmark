@@ -252,7 +252,7 @@ mod matrix {
         T: Into<R> + Copy + Send + Sync,
         R: Add<Output = R> + Mul<Output = R> + Copy + Send + Sync,
     {
-        threadpool.install(|| mul(matrix_a, matrix_b, matrix_r, timeout, Some(&threadpool)))
+        threadpool.install(|| mul(matrix_a, matrix_b, matrix_r, timeout, Some(threadpool)))
     }
 
     fn mul<T, R>(
@@ -286,7 +286,7 @@ mod matrix {
             (&mut r22, &a21, &b12, &a22, &b22),
         ];
 
-        if let Some(_) = threadpool {
+        if threadpool.is_some() {
             ops = tuples
                 .into_par_iter()
                 .map(|(r, a1, b1, a2, b2)| {

@@ -103,7 +103,7 @@ impl Avg for Vec<Duration> {
     type T = Duration;
 
     fn avg(&self) -> Self::T {
-        if self.len() == 0 {
+        if self.is_empty() {
             return Duration::ZERO;
         }
 
@@ -174,14 +174,14 @@ mod tests {
 
     #[test]
     fn test_is_pow() {
-        assert_eq!(true, is_pow(1, 2));
-        assert_eq!(true, is_pow(2, 2));
-        assert_eq!(true, is_pow(64, 2));
-        assert_eq!(true, is_pow(256, 2));
+        assert!(is_pow(1, 2));
+        assert!(is_pow(2, 2));
+        assert!(is_pow(64, 2));
+        assert!(is_pow(256, 2));
 
-        assert_eq!(false, is_pow(3, 2));
-        assert_eq!(false, is_pow(10, 2));
-        assert_eq!(false, is_pow(100, 2));
+        assert!(!is_pow(3, 2));
+        assert!(!is_pow(10, 2));
+        assert!(!is_pow(100, 2));
     }
 
     #[test]
