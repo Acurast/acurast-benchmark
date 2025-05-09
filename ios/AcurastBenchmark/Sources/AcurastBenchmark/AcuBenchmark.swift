@@ -100,6 +100,7 @@ public struct CpuReport {
     }
 }
 
+@available(iOS 15.0, *)
 extension CpuReport: CustomDebugStringConvertible {
     public var debugDescription: String {
         """
@@ -204,6 +205,7 @@ public struct RamReport {
     }
 }
 
+@available(iOS 15.0, *)
 extension RamReport: CustomDebugStringConvertible {
     public var debugDescription: String {
         """
@@ -308,6 +310,7 @@ public struct StorageReport {
     }
 }
 
+@available(iOS 15.0, *)
 extension StorageReport: CustomDebugStringConvertible {
     public var debugDescription: String {
         """
