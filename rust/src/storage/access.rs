@@ -46,8 +46,7 @@ pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, E
     for _ in 0..context.rand_iters {
         let mut file = context.open_file().map_err(Error::IO)?;
         for _ in 0..context.rand_size_mb {
-            file.write_all(&context.write_buf_mb)
-                .map_err(Error::IO)?;
+            file.write_all(&context.write_buf_mb).map_err(Error::IO)?;
         }
         context.reset_write_buf();
         context.reset_read_buf();
@@ -118,15 +117,13 @@ mod random {
         read_offsets: &[u64],
     ) -> Result<(), Error> {
         for &offset in write_offsets {
-            file.seek(SeekFrom::Start(offset))
-                .map_err(Error::IO)?;
+            file.seek(SeekFrom::Start(offset)).map_err(Error::IO)?;
             file.write_all(write_buf_mb).map_err(Error::IO)?;
             file.sync_all().map_err(Error::IO)?;
         }
 
         for &offset in read_offsets {
-            file.seek(SeekFrom::Start(offset))
-                .map_err(Error::IO)?;
+            file.seek(SeekFrom::Start(offset)).map_err(Error::IO)?;
             file.read_exact(read_buf_mb).map_err(Error::IO)?;
 
             // there's no trivial way to verify if data is correctly read back,
@@ -234,7 +231,7 @@ struct Context {
 
     seq_iters: usize,
     seq_size_mb: usize,
-    
+
     rand_iters: usize,
     rand_size_mb: usize,
 }
@@ -301,7 +298,13 @@ impl Context {
 
     fn random_offsets(&mut self, size: usize) -> Vec<u64> {
         (0..size)
-            .map(|_| if size > 1 { self.rng.gen_range(0..((size - 1) * MB)) as u64 } else { 0 })
+            .map(|_| {
+                if size > 1 {
+                    self.rng.gen_range(0..((size - 1) * MB)) as u64
+                } else {
+                    0
+                }
+            })
             .collect()
     }
 }

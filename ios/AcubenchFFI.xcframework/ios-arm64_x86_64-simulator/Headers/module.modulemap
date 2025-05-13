@@ -1,0 +1,4 @@
+module AcubenchFFI {
+    header "ffi.h"
+    export *
+}
