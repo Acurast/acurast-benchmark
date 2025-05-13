@@ -4,7 +4,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{utils::{Avg, MB}, CpuFeatures};
+use crate::{
+    utils::{Avg, MB},
+    CpuFeatures,
+};
 
 pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, Error> {
     let mut report_builder = ReportBuilder::new(config.iters);
@@ -97,8 +100,7 @@ mod tests {
             Config {
                 iters: 5,
                 data_len: 64,
-                ..Default::default()
-            }
+            },
         );
 
         assert!(result.is_ok(), "expected success");

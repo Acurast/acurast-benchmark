@@ -116,7 +116,7 @@ val ffiBuild: TaskProvider<Task> = tasks.register("ffiBuild", Task::class.java) 
         }
 
         copy {
-            from("../../rust/ffi/ffi.h")
+            from("../../rust/ffi/include/ffi.h")
             into("./src/main/cpp/src/")
         }
     }
