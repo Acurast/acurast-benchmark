@@ -121,8 +121,8 @@ public struct CPUConfig: Config {
         cStruct.math_duration = mathDuration
         cStruct.math_data_len = mathDataSize
         cStruct.math_simd = mathSIMD
-        cStruct.crypto_duration = cryptoDuration
-        cStruct.crypto_data_len = cryptoDataSize
+        cStruct.sort_duration = sortDuration
+        cStruct.sort_data_len = sortDataSize
         
         return cStruct
     }
@@ -166,11 +166,11 @@ extension CPUReport: CustomDebugStringConvertible {
     public var debugDescription: String {
         """
         CPU
-        :::: crypto \(cryptoTPS.formatted()) ops/s
-        :::: math   \(mathTPS.formatted()) ops/s
-        :::: sort   \(sortTPS.formatted()) ops/s
+        :::: crypto \(cryptoTPS.formattedWithPrecision()) ops/s
+        :::: math   \(mathTPS.formattedWithPrecision()) ops/s
+        :::: sort   \(sortTPS.formattedWithPrecision()) ops/s
         ----
-        :::: score  \(score.formatted())
+        :::: score  \(score.formattedWithPrecision())
         """
     }
 }
@@ -277,7 +277,7 @@ public struct RAMReport: Report {
         allocAvgTime = cStruct.pointee.alloc_avg_t
         accessSequentialAvgTime = cStruct.pointee.access_seq_avg_t
         accessRandomAvgTime = cStruct.pointee.access_rand_avg_t
-        accessConcurrentAvgTime = cStruct.pointee.access_seq_avg_t
+        accessConcurrentAvgTime = cStruct.pointee.access_con_avg_t
         score = cStruct.pointee.score
         if let err = cStruct.pointee.err {
             error = String(cString: err)
@@ -294,12 +294,12 @@ extension RAMReport: CustomDebugStringConvertible {
         """
         RAM
         :::: total memory        \(totalMemory / 1024 / 1024) GB
-        :::: alloc               \(allocAvgTime.formatted()) s
-        :::: access (sequential) \(accessSequentialAvgTime.formatted()) s
-        :::: access (random)     \(accessRandomAvgTime.formatted()) s
-        :::: access (concurrent) \(accessConcurrentAvgTime.formatted()) s
+        :::: alloc               \(allocAvgTime.formattedWithPrecision()) s
+        :::: access (sequential) \(accessSequentialAvgTime.formattedWithPrecision()) s
+        :::: access (random)     \(accessRandomAvgTime.formattedWithPrecision()) s
+        :::: access (concurrent) \(accessConcurrentAvgTime.formattedWithPrecision()) s
         ----
-        :::: score               \(score.formatted())
+        :::: score               \(score.formattedWithPrecision())
         """
     }
 }
@@ -420,10 +420,10 @@ extension StorageReport: CustomDebugStringConvertible {
         """
         Storage
         :::: available           \(availableStorage / 1024 / 1024 / 1024) GB
-        :::: access (sequential) \(accessSequentialAvgTime.formatted()) s
-        :::: access (random)     \(accessRandomAvgTime.formatted()) s
+        :::: access (sequential) \(accessSequentialAvgTime.formattedWithPrecision()) s
+        :::: access (random)     \(accessRandomAvgTime.formattedWithPrecision()) s
         ----
-        :::: score               \(score.formatted())
+        :::: score               \(score.formattedWithPrecision())
         """
     }
 }
@@ -554,5 +554,11 @@ extension FileManager {
         } catch {
             return 0
         }
+    }
+}
+
+extension Double {
+    func formattedWithPrecision(_ digits: Int = 10) -> String {
+        formatted(.number.precision(.fractionLength(digits)))
     }
 }
