@@ -1,3 +1,5 @@
+FFI_NAME := AcubenchFFI
+
 MAKEFILE_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 OUTPUT_DIR ?= $(MAKEFILE_DIR)
 
@@ -16,18 +18,19 @@ CARGO_TARGET_DIR ?= $(CARGO_MANIFEST_DIR)/target
 cargo_target_dir = $(CARGO_TARGET_DIR)/$(1)/release
 cargo_target_path = $(call cargo_target_dir,$(1))/libacubench.a
 
-HEADERS_DIR := $(CARGO_MANIFEST_DIR)/ffi/include
+HEADERS_DIR := $(CARGO_TARGET_DIR)/headers
 
 XCFRAMEWORK_TARGET_AARCH64 = ios-arm64
 XCFRAMEWORK_TARGET_SIM = ios-arm64_x86_64-simulator
 
-XCFRAMEWORK_PATH := $(OUTPUT_DIR)/AcubenchFFI.xcframework
-xcframework_headers_dir = $(XCFRAMEWORK_PATH)/$(1)/Headers
+XCFRAMEWORK_PATH := $(OUTPUT_DIR)/$(FFI_NAME).xcframework
+xcframework_headers_dir = $(XCFRAMEWORK_PATH)/$(1)/Headers/$(FFI_NAME)
 xcframework_modulemap_path = $(call xcframework_headers_dir,$(1))/module.modulemap
 
 cargo-prepare:
 	@echo "Preparing..."
 	$(RUSTUP) target add $(CARGO_TARGET_AARCH64)
+	$(RUSTUP) target add $(CARGO_TARGET_AARCH64_SIM)
 	$(RUSTUP) target add $(CARGO_TARGET_X86_64)
 
 cargo-build: cargo-prepare
@@ -35,6 +38,10 @@ cargo-build: cargo-prepare
 	$(CARGO) build --release --target $(CARGO_TARGET_AARCH64) --manifest-path $(CARGO_MANIFEST_PATH) --target-dir $(CARGO_TARGET_DIR)
 	$(CARGO) build --release --target $(CARGO_TARGET_AARCH64_SIM) --manifest-path $(CARGO_MANIFEST_PATH) --target-dir $(CARGO_TARGET_DIR)
 	$(CARGO) build --release --target $(CARGO_TARGET_X86_64) --manifest-path $(CARGO_MANIFEST_PATH) --target-dir $(CARGO_TARGET_DIR)
+
+	@rm -rf $(HEADERS_DIR)
+	@mkdir -p $(HEADERS_DIR)/$(FFI_NAME)
+	@cp -a $(CARGO_MANIFEST_DIR)/ffi/include/. $(HEADERS_DIR)/$(FFI_NAME)
 
 create-xcframework: cargo-build
 	@echo "Packing..."
@@ -44,8 +51,7 @@ create-xcframework: cargo-build
 		$(call cargo_target_path,$(CARGO_TARGET_X86_64)) \
 		-output $(call cargo_target_path,$(CARGO_TARGET_UNIVERSAL_SIM))
 
-
-	rm -rf $(XCFRAMEWORK_PATH)
+	@rm -rf $(XCFRAMEWORK_PATH)
 	xcodebuild -create-xcframework \
 		-library $(call cargo_target_path,$(CARGO_TARGET_AARCH64)) \
 		-headers $(HEADERS_DIR) \
@@ -56,7 +62,7 @@ create-xcframework: cargo-build
 generate-modulemap: create-xcframework
 	@echo "Generate Module Map..."
 	@for path in $(call xcframework_modulemap_path,$(XCFRAMEWORK_TARGET_AARCH64)) $(call xcframework_modulemap_path,$(XCFRAMEWORK_TARGET_SIM)); do \
-		echo "module AcubenchFFI {" > $$path; \
+		echo "module $(FFI_NAME) {" > $$path; \
 		echo "    header \"ffi.h\"" >> $$path; \
 		echo "    export *" >> $$path; \
 		echo "}" >> $$path; \
