@@ -186,6 +186,7 @@ mod encryption {
             })
         });
 
+        #[allow(clippy::manual_try_fold)]
         results
             .into_iter()
             .fold(Ok(0), |acc, next| match (acc, next) {
@@ -198,12 +199,12 @@ mod encryption {
         data.len().div_ceil(ENC_BLOCK_SIZE)
     }
 
-    fn block<'a>(
-        data: &'a [u8],
+    fn block(
+        data: &[u8],
         enc_output_ptr: *mut u8,
         dec_output_ptr: *mut u8,
         idx: usize,
-    ) -> (&'a [u8], &'a mut [u8], &'a mut [u8]) {
+    ) -> (&[u8], &mut [u8], &mut [u8]) {
         let start = idx * ENC_BLOCK_SIZE;
         let end = usize::min(start + ENC_BLOCK_SIZE, data.len());
 
@@ -250,7 +251,7 @@ mod hash {
     ) -> Result<u64, u64> {
         let out = GenericArray::from_mut_slice(output);
 
-        hasher.update(&data[..]);
+        hasher.update(data);
         hasher.finalize_into_reset(out);
 
         Ok(output.len() as u64)
@@ -458,7 +459,7 @@ mod tests {
 
         let result = encryption::run_test(&cipher, &data, &mut enc_output, &mut dec_output, None);
 
-        assert_eq!(true, result.is_ok(), "expected success");
+        assert!(result.is_ok(), "expected success");
         assert_eq!(64, result.unwrap());
         assert_eq!(enc_output, enc_expected);
         assert_eq!(dec_output, data);

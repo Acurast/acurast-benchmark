@@ -21,6 +21,10 @@ void throw_runtime_exception(JNIEnv *env, const char *message) {
     env->ThrowNew(clazz, message);
 }
 
+#define THROW_IF_ERR(ENV, REPORT) if (REPORT->err != nullptr) { \
+    throw_runtime_exception(ENV, REPORT->err); \
+}
+
 extern "C"
 JNIEXPORT jlong JNICALL
 Java_com_acurast_bench_Acubench__1_1new_1_1(JNIEnv *env, jobject thiz, jlong total_ram, jlong avail_storage) {
@@ -49,26 +53,29 @@ Java_com_acurast_bench_Acubench__1_1delete_1_1(JNIEnv *env, jobject thiz, jlong 
 
 jobject jcpu_report(JNIEnv *env, CpuReport *report) {
     jclass clazz = env->FindClass("com/acurast/bench/Acubench$CpuReport");
-    jmethodID init = env->GetMethodID(clazz, "<init>", "(DDD)V");
+    jmethodID init = env->GetMethodID(clazz, "<init>", "(DDDD)V");
 
-    return env->NewObject(clazz, init, report->crypto_tps, report->math_tps, report->sort_tps);
+    return env->NewObject(clazz, init, report->crypto_tps, report->math_tps, report->sort_tps, report->score);
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
-Java_com_acurast_bench_Acubench__1_1cpu_1_1(JNIEnv *env, jobject thiz, jlong ptr, jlong duration,
-                                        jlong enc_data_len, jlong math_data_len, jlong sort_data_len) {
-
+Java_com_acurast_bench_Acubench__1_1cpu_1_1(JNIEnv *env, jobject thiz, jlong ptr,
+                                            jlong crypto_duration, jlong crypto_data_len,
+                                            jlong math_duration, jlong math_data_len, jboolean math_simd,
+                                            jlong sort_duration, jlong sort_data_len) {
     auto report = bench_cpu((void *) ptr, CpuConfig{
-        .duration = (size_t) duration,
-        .enc_data_len = (size_t) enc_data_len,
+        .crypto_duration = (size_t) crypto_duration,
+        .crypto_data_len = (size_t) crypto_data_len,
+        .math_duration = (size_t) math_duration,
         .math_data_len = (size_t) math_data_len,
+        .math_simd = math_simd == JNI_TRUE,
+        .sort_duration = (size_t) sort_duration,
         .sort_data_len = (size_t) sort_data_len
     });
     auto jreport = jcpu_report(env, report);
-    if (report->err != nullptr && report->err_len != 0) {
-        throw_runtime_exception(env, report->err);
-    }
+    THROW_IF_ERR(env, report);
+
     drop_cpu_report(report);
 
     return jreport;
@@ -77,19 +84,21 @@ Java_com_acurast_bench_Acubench__1_1cpu_1_1(JNIEnv *env, jobject thiz, jlong ptr
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_acurast_bench_Acubench__1_1cpu_1multithread_1_1(JNIEnv *env, jobject thiz, jlong ptr,
-                                                         jlong duration, jlong enc_data_len,
-                                                         jlong math_data_len, jlong sort_data_len) {
+                                                         jlong crypto_duration, jlong crypto_data_len,
+                                                         jlong math_duration, jlong math_data_len,
+                                                         jlong sort_duration, jlong sort_data_len) {
     auto report = bench_cpu_multithread((void *) ptr, CpuConfig{
-        .duration = (size_t) duration,
-        .enc_data_len = (size_t) enc_data_len,
+        .crypto_duration = (size_t) crypto_duration,
+        .crypto_data_len = (size_t) crypto_data_len,
+        .math_duration = (size_t) math_duration,
         .math_data_len = (size_t) math_data_len,
+        .sort_duration = (size_t) sort_duration,
         .sort_data_len = (size_t) sort_data_len
     });
 
     auto jreport = jcpu_report(env, report);
-    if (report->err != nullptr && report->err_len != 0) {
-        throw_runtime_exception(env, report->err);
-    }
+    THROW_IF_ERR(env, report);
+
     drop_cpu_report(report);
 
     return jreport;
@@ -97,25 +106,32 @@ Java_com_acurast_bench_Acubench__1_1cpu_1multithread_1_1(JNIEnv *env, jobject th
 
 jobject jram_report(JNIEnv *env, RamReport *report) {
     jclass clazz = env->FindClass("com/acurast/bench/Acubench$RamReport");
-    jmethodID init = env->GetMethodID(clazz, "<init>", "(JDDDD)V");
+    jmethodID init = env->GetMethodID(clazz, "<init>", "(JDDDDD)V");
 
-    return env->NewObject(clazz, init, (jlong) report->total_mem, report->alloc_avg_t, report->access_seq_avg_t, report->access_rand_avg_t, report->access_con_avg_t);
+    return env->NewObject(clazz, init, (jlong) report->total_mem, report->alloc_avg_t, report->access_seq_avg_t, report->access_rand_avg_t, report->access_con_avg_t, report->score);
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
-Java_com_acurast_bench_Acubench__1_1ram_1_1(JNIEnv *env, jobject thiz, jlong ptr, jlong alloc_data_len,
-                                            jlong access_data_len, jlong iters) {
+Java_com_acurast_bench_Acubench__1_1ram_1_1(JNIEnv *env, jobject thiz, jlong ptr, jlong alloc_iters,
+                                            jlong alloc_data_len, jlong access_seq_iters,
+                                            jlong access_seq_data_len, jlong access_rand_iters,
+                                            jlong access_rand_data_len, jlong access_concurr_iters,
+                                            jlong access_concurr_data_len) {
     auto report = bench_ram((void *) ptr, RamConfig{
+        .alloc_iters = (size_t) alloc_iters,
         .alloc_data_len = (size_t) alloc_data_len,
-        .access_data_len = (size_t) access_data_len,
-        .iters = (size_t) iters
+        .access_seq_iters = (size_t) access_seq_iters,
+        .access_seq_data_len = (size_t) access_seq_data_len,
+        .access_rand_iters = (size_t) access_rand_iters,
+        .access_rand_data_len = (size_t) access_rand_data_len,
+        .access_concurr_iters = (size_t) access_concurr_iters,
+        .access_concurr_data_len = (size_t) access_concurr_data_len,
     });
 
     auto jreport = jram_report(env, report);
-    if (report->err != nullptr && report->err_len != 0) {
-        throw_runtime_exception(env, report->err);
-    }
+    THROW_IF_ERR(env, report);
+
     drop_ram_report(report);
 
     return jreport;
@@ -123,15 +139,18 @@ Java_com_acurast_bench_Acubench__1_1ram_1_1(JNIEnv *env, jobject thiz, jlong ptr
 
 jobject jstorage_report(JNIEnv *env, StorageReport *report) {
     jclass clazz = env->FindClass("com/acurast/bench/Acubench$StorageReport");
-    jmethodID init = env->GetMethodID(clazz, "<init>", "(JDD)V");
+    jmethodID init = env->GetMethodID(clazz, "<init>", "(JDDD)V");
 
-    return env->NewObject(clazz, init, (jlong) report->avail_storage, report->access_seq_avg_t, report->access_rand_avg_t);
+    return env->NewObject(clazz, init, (jlong) report->avail_storage, report->access_seq_avg_t, report->access_rand_avg_t, report->score);
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
-Java_com_acurast_bench_Acubench__1_1storage_1_1(JNIEnv *env, jobject thiz, jlong ptr, jbyteArray dir,
-                                                jlong access_data_len_mb, jlong iters) {
+Java_com_acurast_bench_Acubench__1_1storage_1_1(JNIEnv *env, jobject thiz, jlong ptr,
+                                                jbyteArray dir, jlong access_seq_iters,
+                                                jlong access_seq_data_len_mb,
+                                                jlong access_rand_iters,
+                                                jlong access_rand_data_len_mb) {
     jsize dir_len = env->GetArrayLength(dir);
     jbyte *jdir = env->GetByteArrayElements(dir, nullptr);
     std::vector<char> dir_vec(reinterpret_cast<char*>(jdir), reinterpret_cast<char*>(jdir) + dir_len);
@@ -140,14 +159,15 @@ Java_com_acurast_bench_Acubench__1_1storage_1_1(JNIEnv *env, jobject thiz, jlong
     auto report = bench_storage((void *) ptr, StorageConfig{
         .dir = dir_vec.data(),
         .dir_len = dir_vec.size(),
-        .access_data_len_mb = (size_t) access_data_len_mb,
-        .iters = (size_t) iters
+        .access_seq_iters = (size_t) access_seq_iters,
+        .access_seq_data_len_mb = (size_t) access_seq_data_len_mb,
+        .access_rand_iters = (size_t) access_rand_iters,
+        .access_rand_data_len_mb = (size_t) access_rand_data_len_mb,
     });
 
     auto jreport = jstorage_report(env, report);
-    if (report->err != nullptr && report->err_len != 0) {
-        throw_runtime_exception(env, report->err);
-    }
+    THROW_IF_ERR(env, report);
+
     drop_storage_report(report);
 
     return jreport;

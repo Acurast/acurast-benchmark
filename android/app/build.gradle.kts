@@ -10,7 +10,7 @@ plugins {
 object Library {
     const val groupId = "com.acurast.bench"
     const val artifactId = "acubench"
-    const val version = "1.0.0"
+    const val version = "1.1.0"
 }
 
 android {
@@ -113,6 +113,11 @@ val ffiBuild: TaskProvider<Task> = tasks.register("ffiBuild", Task::class.java) 
                 into("./src/main/cpp/libs/$destination/")
                 rename { "libacubench_ffi.a" }
             }
+        }
+
+        copy {
+            from("../../rust/ffi/include/ffi.h")
+            into("./src/main/cpp/src/")
         }
     }
 }

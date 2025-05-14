@@ -4,9 +4,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::utils::{Avg, MB};
+use crate::{
+    utils::{Avg, MB},
+    CpuFeatures,
+};
 
-pub(crate) fn bench(config: Config) -> Result<Report, Error> {
+pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, Error> {
     let mut report_builder = ReportBuilder::new(config.iters);
 
     let mut start: Instant;
@@ -19,6 +22,7 @@ pub(crate) fn bench(config: Config) -> Result<Report, Error> {
     Ok(report_builder.build())
 }
 
+#[allow(clippy::slow_vector_initialization)]
 fn run_test(n: usize) -> Result<(), Error> {
     let mut data = Vec::with_capacity(n);
     data.resize(n, 0u8);
@@ -31,15 +35,15 @@ fn run_test(n: usize) -> Result<(), Error> {
 }
 
 pub struct Config {
-    pub data_len: usize,
     pub iters: usize,
+    pub data_len: usize,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
-            data_len: 64 * MB,
             iters: 100,
+            data_len: 64 * MB,
         }
     }
 }
@@ -87,13 +91,19 @@ mod tests {
 
     #[test]
     fn test_bench() {
-        let result = bench(Config {
-            data_len: 64,
-            iters: 5,
-            ..Default::default()
-        });
+        let result = bench(
+            &CpuFeatures {
+                num_cores: 8,
+                sve: false,
+                i8mm: false,
+            },
+            Config {
+                iters: 5,
+                data_len: 64,
+            },
+        );
 
-        assert_eq!(true, result.is_ok(), "expected success");
+        assert!(result.is_ok(), "expected success");
         let result = result.unwrap();
         assert!(result.avg_t > Duration::ZERO);
 

@@ -23,11 +23,11 @@ use crate::{
 
 pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, Error> {
     let mut context = Context::new(config);
-    let mut report_builder = ReportBuilder::new(context.iters);
+    let mut report_builder = ReportBuilder::new(context.seq_iters);
 
     let mut start: Instant;
-    for _ in 0..context.iters {
-        let mut file = context.open_file().map_err(|err| Error::IO(err))?;
+    for _ in 0..context.seq_iters {
+        let mut file = context.open_file().map_err(Error::IO)?;
         context.reset_write_buf();
         context.reset_read_buf();
 
@@ -36,24 +36,23 @@ pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, E
             &mut file,
             &mut context.write_buf_mb,
             &mut context.read_buf_mb,
-            context.size_mb,
+            context.seq_size_mb,
         )?);
         report_builder.add_seq(start.elapsed());
 
-        remove_file(context.file_path.clone()).map_err(|err| Error::IO(err))?;
+        remove_file(context.file_path.clone()).map_err(Error::IO)?;
     }
 
-    for _ in 0..context.iters {
-        let mut file = context.open_file().map_err(|err| Error::IO(err))?;
-        for _ in 0..context.size_mb {
-            file.write_all(&mut context.write_buf_mb)
-                .map_err(|err| Error::IO(err))?;
+    for _ in 0..context.rand_iters {
+        let mut file = context.open_file().map_err(Error::IO)?;
+        for _ in 0..context.rand_size_mb {
+            file.write_all(&context.write_buf_mb).map_err(Error::IO)?;
         }
         context.reset_write_buf();
         context.reset_read_buf();
 
-        let write_offsets = context.random_offsets(context.size_mb);
-        let read_offsets = context.random_offsets(context.size_mb);
+        let write_offsets = context.random_offsets(context.rand_size_mb);
+        let read_offsets = context.random_offsets(context.rand_size_mb);
 
         start = Instant::now();
         black_box(random::run_test(
@@ -65,7 +64,7 @@ pub(crate) fn bench(_features: &CpuFeatures, config: Config) -> Result<Report, E
         )?);
         report_builder.add_rand(start.elapsed());
 
-        remove_file(context.file_path.clone()).map_err(|err| Error::IO(err))?;
+        remove_file(context.file_path.clone()).map_err(Error::IO)?;
     }
 
     let _ = remove_file(context.file_path.clone());
@@ -85,14 +84,14 @@ mod sequential {
         size_mb: usize,
     ) -> Result<(), Error> {
         for _ in 0..size_mb {
-            file.write_all(write_buf_mb).map_err(|err| Error::IO(err))?;
-            file.sync_all().map_err(|err| Error::IO(err))?;
+            file.write_all(write_buf_mb).map_err(Error::IO)?;
+            file.sync_all().map_err(Error::IO)?;
         }
 
-        file.rewind().map_err(|err| Error::IO(err))?;
+        file.rewind().map_err(Error::IO)?;
 
         for _ in 0..size_mb {
-            file.read_exact(read_buf_mb).map_err(|err| Error::IO(err))?;
+            file.read_exact(read_buf_mb).map_err(Error::IO)?;
             if write_buf_mb != read_buf_mb {
                 return Err(Error::InvalidData(
                     write_buf_mb.to_vec(),
@@ -118,16 +117,14 @@ mod random {
         read_offsets: &[u64],
     ) -> Result<(), Error> {
         for &offset in write_offsets {
-            file.seek(SeekFrom::Start(offset))
-                .map_err(|err| Error::IO(err))?;
-            file.write_all(write_buf_mb).map_err(|err| Error::IO(err))?;
-            file.sync_all().map_err(|err| Error::IO(err))?;
+            file.seek(SeekFrom::Start(offset)).map_err(Error::IO)?;
+            file.write_all(write_buf_mb).map_err(Error::IO)?;
+            file.sync_all().map_err(Error::IO)?;
         }
 
         for &offset in read_offsets {
-            file.seek(SeekFrom::Start(offset))
-                .map_err(|err| Error::IO(err))?;
-            file.read_exact(read_buf_mb).map_err(|err| Error::IO(err))?;
+            file.seek(SeekFrom::Start(offset)).map_err(Error::IO)?;
+            file.read_exact(read_buf_mb).map_err(Error::IO)?;
 
             // there's no trivial way to verify if data is correctly read back,
             // skipping check
@@ -142,17 +139,27 @@ pub struct Config {
 
     pub dir: PathBuf,
 
-    pub data_len_mb: usize,
-    pub iters: usize,
+    pub seq_iters: usize,
+    pub seq_data_len_mb: usize,
+
+    pub rand_iters: usize,
+    pub rand_data_len_mb: usize,
 }
 
 impl Default for Config {
     fn default() -> Self {
+        let iters = 10;
+        let data_len_mb = 500;
+
         Self {
             rng: Box::new(rand::thread_rng()),
             dir: temp_dir(),
-            data_len_mb: 500,
-            iters: 10,
+
+            seq_iters: iters,
+            seq_data_len_mb: data_len_mb,
+
+            rand_iters: iters,
+            rand_data_len_mb: data_len_mb,
         }
     }
 }
@@ -219,10 +226,14 @@ struct Context {
 
     file_path: PathBuf,
 
-    iters: usize,
-    size_mb: usize,
     write_buf_mb: Vec<u8>,
     read_buf_mb: Vec<u8>,
+
+    seq_iters: usize,
+    seq_size_mb: usize,
+
+    rand_iters: usize,
+    rand_size_mb: usize,
 }
 
 impl Context {
@@ -240,10 +251,15 @@ impl Context {
         Self {
             rng: config.rng,
             file_path,
-            iters: config.iters,
-            size_mb: config.data_len_mb,
+
             write_buf_mb,
             read_buf_mb,
+
+            seq_iters: config.seq_iters,
+            seq_size_mb: config.seq_data_len_mb,
+
+            rand_iters: config.rand_iters,
+            rand_size_mb: config.rand_data_len_mb,
         }
     }
 
@@ -252,6 +268,7 @@ impl Context {
             .create(true)
             .write(true)
             .read(true)
+            .truncate(true)
             .open(self.file_path.clone())?;
 
         let fd = file.as_raw_fd();
@@ -281,7 +298,13 @@ impl Context {
 
     fn random_offsets(&mut self, size: usize) -> Vec<u64> {
         (0..size)
-            .map(|_| self.rng.gen_range(0..self.size_mb) as u64 * MB as u64)
+            .map(|_| {
+                if size > 1 {
+                    self.rng.gen_range(0..((size - 1) * MB)) as u64
+                } else {
+                    0
+                }
+            })
             .collect()
     }
 }
@@ -292,6 +315,9 @@ mod tests {
 
     #[test]
     fn test_bench() {
+        let iters = 2;
+        let data_len_mb = 10;
+
         let result = bench(
             &CpuFeatures {
                 num_cores: 8,
@@ -299,8 +325,10 @@ mod tests {
                 i8mm: false,
             },
             Config {
-                data_len_mb: 10,
-                iters: 2,
+                seq_iters: iters,
+                seq_data_len_mb: data_len_mb,
+                rand_iters: iters,
+                rand_data_len_mb: data_len_mb,
                 ..Default::default()
             },
         );

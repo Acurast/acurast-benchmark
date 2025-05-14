@@ -25,5 +25,11 @@ class AcubenchNativeTest {
         assert(__test_matrix_mul_sve_i8mm__())
     }
 
+    @Test
+    fun testMatrixMulNaive() {
+        assert(__test_matrix_mul_naive__())
+    }
+
     private external fun __test_matrix_mul_sve_i8mm__(): Boolean
+    private external fun __test_matrix_mul_naive__(): Boolean
 }
