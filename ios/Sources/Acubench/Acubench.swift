@@ -293,7 +293,7 @@ extension RAMReport: CustomDebugStringConvertible {
     public var debugDescription: String {
         """
         RAM
-        :::: total memory        \(totalMemory / 1024 / 1024) GB
+        :::: total memory        \(totalMemory / 1024 / 1024 / 1024) GB
         :::: alloc               \(allocAvgTime.formattedWithPrecision()) s
         :::: access (sequential) \(accessSequentialAvgTime.formattedWithPrecision()) s
         :::: access (random)     \(accessRandomAvgTime.formattedWithPrecision()) s
