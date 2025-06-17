@@ -24,7 +24,10 @@ let package = Package(
         ),
         .target(
             name: "Acubench",
-            dependencies: ["AcubenchFFI"]
+            dependencies: ["AcubenchFFI"],
+            resources: [
+                .process("Resources")
+            ]
         ),
         .testTarget(
             name: "AcubenchTests",
