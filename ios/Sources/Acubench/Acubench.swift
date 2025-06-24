@@ -373,15 +373,17 @@ public struct StorageConfig: Config {
     
     fileprivate func toCStruct() -> AcubenchFFI.StorageConfig {
         var cStruct = AcubenchFFI.StorageConfig()
-        let dirData = dir.path.data(using: .utf8)!
-        cStruct.dir = dirData.withUnsafeBytes { $0.baseAddress!.assumingMemoryBound(to: CChar.self) }
-        cStruct.dir_len = dirData.count
+        cStruct.dir = dir.path.withCString { strdup($0) }
         cStruct.access_seq_iters = accessSequentialIters
         cStruct.access_seq_data_len_mb = accessSequentialDataSizeMB
         cStruct.access_rand_iters = accessRandomIters
         cStruct.access_rand_data_len_mb = accessRandomDataSizeMB
         
         return cStruct
+    }
+    
+    fileprivate func dropCStruct(_ cStruct: AcubenchFFI.StorageConfig) {
+        free(cStruct.dir)
     }
     
     public struct Default {
@@ -464,7 +466,12 @@ public class Acubench {
     }
     
     private func run<C: Config, R: Report>(with config: C, _ bench: @escaping (UnsafeMutableRawPointer, C.CStruct) -> UnsafeMutablePointer<R.CStruct>?) throws -> R {
-        guard let cReport = bench(ptr, config.toCStruct()) else {
+        let cConfig = config.toCStruct()
+        defer {
+            config.dropCStruct(cConfig)
+        }
+        
+        guard let cReport = bench(ptr, cConfig) else {
             throw Error.noPointer
         }
         
@@ -524,6 +531,11 @@ private protocol Config {
     associatedtype CStruct
     
     func toCStruct() -> CStruct
+    func dropCStruct(_ cStruct: CStruct)
+}
+
+extension Config {
+    func dropCStruct(_ cStruct: CStruct) { /* NOOP */ }
 }
 
 private protocol Report {

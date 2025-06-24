@@ -147,18 +147,16 @@ jobject jstorage_report(JNIEnv *env, StorageReport *report) {
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_acurast_bench_Acubench__1_1storage_1_1(JNIEnv *env, jobject thiz, jlong ptr,
-                                                jbyteArray dir, jlong access_seq_iters,
+                                                jstring dir, jlong access_seq_iters,
                                                 jlong access_seq_data_len_mb,
                                                 jlong access_rand_iters,
                                                 jlong access_rand_data_len_mb) {
-    jsize dir_len = env->GetArrayLength(dir);
-    jbyte *jdir = env->GetByteArrayElements(dir, nullptr);
-    std::vector<char> dir_vec(reinterpret_cast<char*>(jdir), reinterpret_cast<char*>(jdir) + dir_len);
-    env->ReleaseByteArrayElements(dir, jdir, JNI_ABORT);
+    const char* cdir_const = env->GetStringUTFChars(dir, nullptr);
+    std::string cdir(cdir_const);
+    env->ReleaseStringUTFChars(dir, cdir_const);
 
     auto report = bench_storage((void *) ptr, StorageConfig{
-        .dir = dir_vec.data(),
-        .dir_len = dir_vec.size(),
+        .dir = cdir.data(),
         .access_seq_iters = (size_t) access_seq_iters,
         .access_seq_data_len_mb = (size_t) access_seq_data_len_mb,
         .access_rand_iters = (size_t) access_rand_iters,
