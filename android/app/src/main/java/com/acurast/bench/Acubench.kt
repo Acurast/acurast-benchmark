@@ -54,7 +54,7 @@ public class Acubench(context: Context) {
     public fun storage(config: StorageConfig): StorageReport =
         __storage__(
             ptr,
-            config.dir.absolutePath.toByteArray(charset = Charsets.UTF_8),
+            config.dir.absolutePath,
             config.accessSequentialIters,
             config.accessSequentialDataSizeMB,
             config.accessRandomIters,
@@ -118,7 +118,7 @@ public class Acubench(context: Context) {
 
     private external fun __storage__(
         ptr: Long,
-        dir: ByteArray,
+        dir: String,
         accessSeqIters: Long,
         accessSeqDataLenMB: Long,
         accessRandIters: Long,

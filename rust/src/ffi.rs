@@ -1,6 +1,12 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
-use std::{ffi::CString, fmt::Debug, ptr::null_mut, time::Duration};
+use std::{
+    ffi::{CStr, CString},
+    fmt::Debug,
+    path::PathBuf,
+    ptr::null_mut,
+    time::Duration
+};
 
 use libc::c_char;
 
@@ -190,8 +196,7 @@ pub extern "C" fn drop_ram_report(report: *const RamReport) {
 
 #[repr(C)]
 pub struct StorageConfig {
-    dir: *const u8,
-    dir_len: usize,
+    dir: *mut c_char,
 
     access_seq_iters: usize,
     access_seq_data_len_mb: usize,
@@ -464,12 +469,19 @@ macro_rules! impl_from_storage_config {
         impl From<&StorageConfig> for Option<storage::$typ::Config> {
             fn from(value: &StorageConfig) -> Self {
                 if $((value.$src_iters > 0 && value.$src_data_len > 0))||* {
+                    let default = storage::$typ::Config::default();
                     Some(storage::$typ::Config {
+                        dir: unsafe { 
+                            CStr::from_ptr(value.dir)
+                                .to_str()
+                                .map(|s| PathBuf::from(s))
+                                .unwrap_or(default.dir)
+                        },
                         $(
                             $tar_iters: value.$src_iters,
                             $tar_data_len: value.$src_data_len.try_into().unwrap(),
                         )*
-                        ..Default::default()
+                        ..default
                     })
                 } else {
                     None

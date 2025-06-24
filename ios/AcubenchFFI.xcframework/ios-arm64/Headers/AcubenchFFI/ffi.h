@@ -81,8 +81,7 @@ extern "C" {
     void drop_ram_report(void *report);
 
     struct StorageConfig {
-        const char *dir;
-        size_t dir_len;
+        char *dir;
 
         size_t access_seq_iters;
         size_t access_seq_data_len_mb;
