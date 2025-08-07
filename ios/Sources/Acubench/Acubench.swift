@@ -10,6 +10,7 @@ import AcubenchFFI
 
 private let KB: Int = 1024
 private let MB: Int = KB * 1024
+private let GB: Int = MB * KB
 
 public struct TypedU64 {
     public let t: UInt8
@@ -293,7 +294,7 @@ extension RAMReport: CustomDebugStringConvertible {
     public var debugDescription: String {
         """
         RAM
-        :::: total memory        \(totalMemory / 1024 / 1024 / 1024) GB
+        :::: total memory        \(Float(totalMemory) / Float(GB)) GB
         :::: alloc               \(allocAvgTime.formattedWithPrecision()) s
         :::: access (sequential) \(accessSequentialAvgTime.formattedWithPrecision()) s
         :::: access (random)     \(accessRandomAvgTime.formattedWithPrecision()) s
@@ -421,7 +422,7 @@ extension StorageReport: CustomDebugStringConvertible {
     public var debugDescription: String {
         """
         Storage
-        :::: available           \(availableStorage / 1024 / 1024 / 1024) GB
+        :::: available           \(Float(availableStorage) / Float(GB)) GB
         :::: access (sequential) \(accessSequentialAvgTime.formattedWithPrecision()) s
         :::: access (random)     \(accessRandomAvgTime.formattedWithPrecision()) s
         ----
