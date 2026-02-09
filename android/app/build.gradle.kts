@@ -75,6 +75,7 @@ cargo {
     targetIncludes = arrayOf("")
     profile = "release"
     prebuiltToolchains = true
+    apiLevel = 29
 }
 
 publishing {
