@@ -227,7 +227,7 @@ public class Acubench(context: Context) {
     ) {
         public fun toPrettyString(precision: Int = PRECISION_DOUBLE_DEFAULT): String = """
             RAM
-            :::: total memory        ${totalMemory / 1024f / 1024f} GB
+            :::: total memory        ${totalMemory / GB.toFloat()} GB
             :::: alloc               ${allocAvgTime.format(precision)} s
             :::: access (sequential) ${accessSequentialAvgTime.format(precision)} s
             :::: access (random)     ${accessRandomAvgTime.format(precision)} s
@@ -281,7 +281,7 @@ public class Acubench(context: Context) {
     ) {
         public fun toPrettyString(precision: Int = PRECISION_DOUBLE_DEFAULT): String = """
             Storage
-            :::: available           ${availableStorage / 1024f / 1024f} GB
+            :::: available           ${availableStorage / GB.toFloat()} GB
             :::: access (sequential) ${accessSequentialAvgTime.format(precision)} s
             :::: access (random)     ${accessRandomAvgTime.format(precision)} s
             ----
@@ -294,6 +294,7 @@ public class Acubench(context: Context) {
     public companion object {
         private const val KB = 1024L
         private const val MB = KB * KB
+        private const val GB = MB * KB
 
         public fun initNative() {
             System.loadLibrary("acubench")
