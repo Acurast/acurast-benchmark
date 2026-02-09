@@ -1,4 +1,4 @@
-FROM rust:1.84.0 AS prepare
+FROM rust:1.90.0 AS prepare
 
 WORKDIR /usr/src/acubench
 
@@ -8,7 +8,7 @@ RUN cargo build --release
 RUN rm src/*.rs
 RUN rm ./target/release/deps/acubench*
 
-FROM rust:1.84.0 AS build
+FROM rust:1.90.0 AS build
 
 WORKDIR /usr/src/acubench
 
