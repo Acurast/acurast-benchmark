@@ -10,7 +10,7 @@ plugins {
 object Library {
     const val groupId = "com.acurast.bench"
     const val artifactId = "acubench"
-    const val version = "1.1.3-beta01"
+    const val version = "1.1.3"
 }
 
 android {
