@@ -83,7 +83,7 @@ class AcubenchTest {
 
     @Test
     fun testCpu() {
-        val duration = 9.seconds
+        val duration = 3.seconds
         val time = measureTime {
             val report = acubench.cpu(Acubench.CpuConfig(duration = duration))
 
@@ -95,12 +95,12 @@ class AcubenchTest {
             println(report.toPrettyString(descriptor = "Single-core"))
         }
 
-        assert(time <= duration + 1.seconds)
+        assert(time <= duration * 3 + 1.seconds) // crypto, math and sort each run for the duration
     }
 
     @Test
     fun testCpuNoSimd() {
-        val duration = 9.seconds
+        val duration = 3.seconds
         val time = measureTime {
             val report = acubench.cpu(Acubench.CpuConfig(duration = duration, mathSimd = false))
 
@@ -112,12 +112,12 @@ class AcubenchTest {
             println(report.toPrettyString(descriptor = "Single-core, no SIMD"))
         }
 
-        assert(time <= duration + 1.seconds)
+        assert(time <= duration * 3 + 1.seconds) // crypto, math and sort each run for the duration
     }
 
     @Test
     fun testCpuMultithread() {
-        val duration = 9.seconds
+        val duration = 3.seconds
         val time = measureTime {
             val report = acubench.cpuMultithread(Acubench.CpuConfig(duration = duration))
 
@@ -129,7 +129,7 @@ class AcubenchTest {
             println(report.toPrettyString(descriptor = "Multicore"))
         }
 
-        assert(time <= duration + 1.seconds)
+        assert(time <= duration * 3 + 1.seconds) // crypto, math and sort each run for the duration
     }
 
     @Test
