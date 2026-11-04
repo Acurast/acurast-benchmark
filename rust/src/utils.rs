@@ -17,7 +17,6 @@ pub(crate) use vec_with_len;
 
 pub(crate) const KB: usize = 1024;
 pub(crate) const MB: usize = KB * KB;
-pub(crate) const GB: usize = KB * MB;
 
 pub(crate) fn slice_from_ptr_mut<'a, T>(ptr: *mut T, from: usize, until: usize) -> &'a mut [T] {
     unsafe { slice::from_raw_parts_mut(ptr.add(from), until - from) }

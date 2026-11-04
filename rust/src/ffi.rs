@@ -10,10 +10,7 @@ use std::{
 
 use libc::c_char;
 
-use crate::{
-    arm::{Auxval, AuxvalMask},
-    cpu, ram, storage, Bench,
-};
+use crate::{arm, cpu, ram, storage, Bench};
 
 #[repr(C)]
 pub struct TypedU64 {
@@ -21,32 +18,23 @@ pub struct TypedU64 {
     pub v: u64,
 }
 
-#[no_mangle]
-pub extern "C" fn new_bench(
-    total_ram: u64,
-    avail_storage: u64,
-    hwcap: u64,
-    hwcap2: u64,
-    sve_mask: TypedU64,
-    i8mm_mask: TypedU64,
-) -> *mut Bench {
-    let bench = Bench::with_auxval(
-        total_ram,
-        avail_storage,
-        Auxval {
-            hwcap,
-            hwcap2,
-            sve_mask: sve_mask.into(),
-            i8mm_mask: i8mm_mask.into(),
-        },
-    );
-
-    Box::into_raw(Box::new(bench))
+#[repr(C)]
+pub struct Auxval {
+    pub hwcap: u64,
+    pub hwcap2: u64,
+    pub sve_mask: TypedU64,
+    pub i8mm_mask: TypedU64,
 }
 
-#[no_mangle]
-pub extern "C" fn drop_bench(bench: *mut Bench) {
-    unsafe { drop(Box::from_raw(bench)) };
+impl From<Auxval> for arm::Auxval {
+    fn from(value: Auxval) -> Self {
+        Self {
+            hwcap: value.hwcap,
+            hwcap2: value.hwcap2,
+            sve_mask: value.sve_mask.into(),
+            i8mm_mask: value.i8mm_mask.into(),
+        }
+    }
 }
 
 macro_rules! bench {
@@ -82,14 +70,13 @@ pub struct CpuReport {
 }
 
 #[no_mangle]
-pub extern "C" fn bench_cpu(bench: *mut Bench, config: CpuConfig) -> *const CpuReport {
-    let bench = unsafe { &mut *bench };
-    let report = __bench_cpu(bench, config);
+pub extern "C" fn bench_cpu(auxval: Auxval, config: CpuConfig) -> CpuReport {
+    let bench = Bench::with_auxval(auxval.into());
 
-    Box::into_raw(Box::new(report.into()))
+    __bench_cpu(&bench, config).into()
 }
 
-fn __bench_cpu(bench: &mut Bench, config: CpuConfig) -> Result<CpuCombinedReports, CString> {
+fn __bench_cpu(bench: &Bench, config: CpuConfig) -> Result<CpuCombinedReports, CString> {
     let crypto_report = bench!(bench, cpu, crypto, config)?;
     let math_report = bench!(bench, cpu, math, config)?;
     let sort_report = bench!(bench, cpu, sort, config)?;
@@ -104,14 +91,13 @@ fn __bench_cpu(bench: &mut Bench, config: CpuConfig) -> Result<CpuCombinedReport
 }
 
 #[no_mangle]
-pub extern "C" fn bench_cpu_multithread(bench: *mut Bench, config: CpuConfig) -> *const CpuReport {
-    let bench = unsafe { &mut *bench };
-    let report = __bench_cpu_multithread(bench, config);
+pub extern "C" fn bench_cpu_multithread(auxval: Auxval, config: CpuConfig) -> CpuReport {
+    let bench = Bench::with_auxval(auxval.into());
 
-    Box::into_raw(Box::new(report.into()))
+    __bench_cpu_multithread(&bench, config).into()
 }
 
-fn __bench_cpu_multithread(bench: &mut Bench, config: CpuConfig) -> Result<CpuCombinedReports, CString> {
+fn __bench_cpu_multithread(bench: &Bench, config: CpuConfig) -> Result<CpuCombinedReports, CString> {
     let crypto_report = bench!(bench, cpu, crypto_multithread, config)?;
     let math_report = bench!(bench, cpu, math_multithread, config)?;
     let sort_report = bench!(bench, cpu, sort_multithread, config)?;
@@ -123,16 +109,6 @@ fn __bench_cpu_multithread(bench: &mut Bench, config: CpuConfig) -> Result<CpuCo
     );
 
     Ok(report)
-}
-
-#[no_mangle]
-pub extern "C" fn drop_cpu_report(report: *const CpuReport) {
-    unsafe {
-        let report = Box::from_raw(report as *mut CpuReport);
-        drop_string(report.err);
-
-        drop(report);
-    }
 }
 
 #[repr(C)]
@@ -163,35 +139,20 @@ pub struct RamReport {
 }
 
 #[no_mangle]
-pub extern "C" fn bench_ram(bench: *mut Bench, config: RamConfig) -> *const RamReport {
-    let bench = unsafe { &mut *bench };
-    let total_mem = bench.ram.total_mem();
-    let report = __bench_ram(bench, config);
-    let report = (
-        total_mem,
-        report,
-    );
+pub extern "C" fn bench_ram(auxval: Auxval, total_mem: u64, config: RamConfig) -> RamReport {
+    let bench = Bench::with_auxval(auxval.into());
+    let report = __bench_ram(&bench, config);
 
-    Box::into_raw(Box::new(report.into()))
+    (total_mem, report).into()
 }
 
-fn __bench_ram(bench: &mut Bench, config: RamConfig) -> Result<RamCombinedReports, CString> {
+fn __bench_ram(bench: &Bench, config: RamConfig) -> Result<RamCombinedReports, CString> {
     let alloc_report = bench!(bench, ram, alloc, config)?;
     let access_report = bench!(bench, ram, access, config)?;
 
     let report = (alloc_report, access_report);
 
     Ok(report)
-}
-
-#[no_mangle]
-pub extern "C" fn drop_ram_report(report: *const RamReport) {
-    unsafe {
-        let report = Box::from_raw(report as *mut RamReport);
-        drop_string(report.err);
-
-        drop(report);
-    }
 }
 
 #[repr(C)]
@@ -216,19 +177,14 @@ pub struct StorageReport {
 }
 
 #[no_mangle]
-pub extern "C" fn bench_storage(bench: *mut Bench, config: StorageConfig) -> *const StorageReport {
-    let bench = unsafe { &mut *bench };
-    let avail_storage = bench.storage.avail_storage();
-    let report = __bench_storage(bench, config);
-    let report = (
-        avail_storage,
-        report,
-    );
+pub extern "C" fn bench_storage(auxval: Auxval, avail_storage: u64, config: StorageConfig) -> StorageReport {
+    let bench = Bench::with_auxval(auxval.into());
+    let report = __bench_storage(&bench, config);
 
-    Box::into_raw(Box::new(report.into()))
+    (avail_storage, report).into()
 }
 
-fn __bench_storage(bench: &mut Bench, config: StorageConfig) -> Result<StorageCombinedReports, CString> {
+fn __bench_storage(bench: &Bench, config: StorageConfig) -> Result<StorageCombinedReports, CString> {
     let access_report = bench!(bench, storage, access, config)?;
 
     let report = access_report;
@@ -237,13 +193,8 @@ fn __bench_storage(bench: &mut Bench, config: StorageConfig) -> Result<StorageCo
 }
 
 #[no_mangle]
-pub extern "C" fn drop_storage_report(report: *const StorageReport) {
-    unsafe {
-        let report = Box::from_raw(report as *mut StorageReport);
-        drop_string(report.err);
-
-        drop(report);
-    }
+pub extern "C" fn drop_report_err(err: *mut c_char) {
+    unsafe { drop_string(err) };
 }
 
 unsafe fn drop_string(ptr: *mut c_char) {
@@ -253,7 +204,7 @@ unsafe fn drop_string(ptr: *mut c_char) {
     }
 }
 
-impl From<TypedU64> for AuxvalMask {
+impl From<TypedU64> for arm::AuxvalMask {
     fn from(value: TypedU64) -> Self {
         match value.t {
             0 => Self::HWCAP(value.v),

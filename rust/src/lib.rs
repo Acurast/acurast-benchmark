@@ -1,6 +1,6 @@
 #![allow(clippy::uninit_vec)]
 
-use std::{fmt, rc::Rc};
+use std::fmt;
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64", target_os = "ios"))]
 pub mod arm;
@@ -15,6 +15,7 @@ mod storage;
 mod macros;
 mod utils;
 
+#[derive(Clone, Copy)]
 pub(crate) struct CpuFeatures {
     num_cores: usize,
 
@@ -29,13 +30,11 @@ pub struct Bench {
 }
 
 impl Bench {
-    pub(crate) fn with_features(total_ram: u64, avail_storage: u64, features: CpuFeatures) -> Self {
-        let features = Rc::new(features);
-
+    pub(crate) fn with_features(features: CpuFeatures) -> Self {
         Self {
-            cpu: cpu::Bench::new(features.clone()),
-            ram: ram::Bench::new(features.clone(), total_ram),
-            storage: storage::Bench::new(features, avail_storage),
+            cpu: cpu::Bench::new(features),
+            ram: ram::Bench::new(features),
+            storage: storage::Bench::new(features),
         }
     }
 
@@ -104,21 +103,15 @@ pub enum Error {
 mod tests {
     use std::time::Duration;
 
-    use crate::utils::GB;
-
     use super::*;
 
     #[test]
     fn test_cpu() {
-        let bench = Bench::with_features(
-            0,
-            0,
-            CpuFeatures {
-                num_cores: 8,
-                sve: false,
-                i8mm: false,
-            },
-        );
+        let bench = Bench::with_features(CpuFeatures {
+            num_cores: 8,
+            sve: false,
+            i8mm: false,
+        });
         let duration = Duration::from_secs(1);
         let result = bench.cpu(cpu::Config {
             crypto: cpu::crypto::Config {
@@ -146,15 +139,11 @@ mod tests {
 
     #[test]
     fn test_cpu_multithread() {
-        let bench = Bench::with_features(
-            0,
-            0,
-            CpuFeatures {
-                num_cores: 8,
-                sve: false,
-                i8mm: false,
-            },
-        );
+        let bench = Bench::with_features(CpuFeatures {
+            num_cores: 8,
+            sve: false,
+            i8mm: false,
+        });
         let duration = Duration::from_secs(1);
         let result = bench.cpu_multithread(cpu::Config {
             crypto: cpu::crypto::Config {
@@ -186,15 +175,11 @@ mod tests {
 
     #[test]
     fn test_ram() {
-        let bench = Bench::with_features(
-            16 * GB as u64,
-            0,
-            CpuFeatures {
-                num_cores: 8,
-                sve: false,
-                i8mm: false,
-            },
-        );
+        let bench = Bench::with_features(CpuFeatures {
+            num_cores: 8,
+            sve: false,
+            i8mm: false,
+        });
 
         let iters = 5;
         let data_len = 64;
@@ -220,15 +205,11 @@ mod tests {
 
     #[test]
     fn test_storage() {
-        let bench = Bench::with_features(
-            0,
-            72 * GB as u64,
-            CpuFeatures {
-                num_cores: 8,
-                sve: false,
-                i8mm: false,
-            },
-        );
+        let bench = Bench::with_features(CpuFeatures {
+            num_cores: 8,
+            sve: false,
+            i8mm: false,
+        });
 
         let iters = 1;
         let data_len_mb = 1;

@@ -16,16 +16,12 @@ extern "C" {
         uint64_t v;
     };
 
-    void* new_bench(
-        uint64_t total_ram,
-        uint64_t avail_storage,
-        uint64_t hwcap,
-        uint64_t hwcap2,
-        struct TypedU64 sve_mask,
-        struct TypedU64 i8mm_mask
-    );
-
-    void drop_bench(void *bench);
+    struct Auxval {
+        uint64_t hwcap;
+        uint64_t hwcap2;
+        struct TypedU64 sve_mask;
+        struct TypedU64 i8mm_mask;
+    };
 
     struct CpuConfig {
         size_t crypto_duration;
@@ -48,9 +44,8 @@ extern "C" {
         char *err;
     };
 
-    struct CpuReport* bench_cpu(void *bench, struct CpuConfig config);
-    struct CpuReport* bench_cpu_multithread(void *bench, struct CpuConfig config);
-    void drop_cpu_report(void *report);
+    struct CpuReport bench_cpu(struct Auxval auxval, struct CpuConfig config);
+    struct CpuReport bench_cpu_multithread(struct Auxval auxval, struct CpuConfig config);
 
     struct RamConfig {
         size_t alloc_iters;
@@ -77,8 +72,7 @@ extern "C" {
         char *err;
     };
 
-    struct RamReport* bench_ram(void *bench, struct RamConfig config);
-    void drop_ram_report(void *report);
+    struct RamReport bench_ram(struct Auxval auxval, uint64_t total_mem, struct RamConfig config);
 
     struct StorageConfig {
         char *dir;
@@ -99,8 +93,9 @@ extern "C" {
         char *err;
     };
 
-    struct StorageReport* bench_storage(void *bench, struct StorageConfig config);
-    void drop_storage_report(void *report);
+    struct StorageReport bench_storage(struct Auxval auxval, uint64_t avail_storage, struct StorageConfig config);
+
+    void drop_report_err(char *err);
 
     /******** C++ -> Rust ********/
 
