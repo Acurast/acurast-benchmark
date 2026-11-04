@@ -7,6 +7,8 @@ before_install:
   - source $HOME/.cargo/env
   - rustup target add aarch64-linux-android
   - rustup target add armv7-linux-androideabi
+  - export RUST_ANDROID_GRADLE_PYTHON_COMMAND=${ANDROID_HOME}/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/python3/bin/python3
+  - test -x "$RUST_ANDROID_GRADLE_PYTHON_COMMAND" || export RUST_ANDROID_GRADLE_PYTHON_COMMAND=python3
   - cd ./android
   - sed -i 's/rust = "[0-9.]*"/rust = "0.9.4"/' ./gradle/libs.versions.toml
   - ./gradlew ffiBuild
