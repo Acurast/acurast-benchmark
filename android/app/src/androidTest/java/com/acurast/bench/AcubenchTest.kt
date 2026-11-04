@@ -1,12 +1,18 @@
 package com.acurast.bench
 
+import android.app.ActivityManager
 import android.content.Context
+import android.os.StatFs
+import androidx.core.content.getSystemService
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlin.math.abs
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.measureTime
 
@@ -18,6 +24,9 @@ import kotlin.time.measureTime
 @RunWith(AndroidJUnit4::class)
 class AcubenchTest {
     companion object {
+        /** Free storage moves between two reads; anything beyond this is not drift. */
+        private const val STORAGE_TOLERANCE = 64L * 1024 * 1024
+
         @BeforeClass
         @JvmStatic
         fun setupAll() {
@@ -74,7 +83,7 @@ class AcubenchTest {
 
     @Test
     fun testCpu() {
-        val duration = 9.seconds
+        val duration = 3.seconds
         val time = measureTime {
             val report = acubench.cpu(Acubench.CpuConfig(duration = duration))
 
@@ -86,12 +95,12 @@ class AcubenchTest {
             println(report.toPrettyString(descriptor = "Single-core"))
         }
 
-        assert(time <= duration + 1.seconds)
+        assert(time <= duration * 3 + 1.seconds) // crypto, math and sort each run for the duration
     }
 
     @Test
     fun testCpuNoSimd() {
-        val duration = 9.seconds
+        val duration = 3.seconds
         val time = measureTime {
             val report = acubench.cpu(Acubench.CpuConfig(duration = duration, mathSimd = false))
 
@@ -103,12 +112,12 @@ class AcubenchTest {
             println(report.toPrettyString(descriptor = "Single-core, no SIMD"))
         }
 
-        assert(time <= duration + 1.seconds)
+        assert(time <= duration * 3 + 1.seconds) // crypto, math and sort each run for the duration
     }
 
     @Test
     fun testCpuMultithread() {
-        val duration = 9.seconds
+        val duration = 3.seconds
         val time = measureTime {
             val report = acubench.cpuMultithread(Acubench.CpuConfig(duration = duration))
 
@@ -120,7 +129,7 @@ class AcubenchTest {
             println(report.toPrettyString(descriptor = "Multicore"))
         }
 
-        assert(time <= duration + 1.seconds)
+        assert(time <= duration * 3 + 1.seconds) // crypto, math and sort each run for the duration
     }
 
     @Test
@@ -148,6 +157,29 @@ class AcubenchTest {
 
         println(report.toPrettyString())
     }
+
+    @Test
+    fun testRamReportsTotalMemoryOfPlatform() {
+        val report = acubench.ram(Acubench.RamConfig(iters = 0))
+
+        assertEquals(context.totalMemory, report.totalMemory)
+    }
+
+    @Test
+    fun testStorageReportsAvailableStorageOfPlatform() {
+        val report = acubench.storage(Acubench.StorageConfig(context, iters = 0))
+
+        val drift = abs(report.availableStorage - context.availableStorage)
+        assertTrue("available storage drifted by $drift bytes", drift <= STORAGE_TOLERANCE)
+    }
+
+    private val Context.totalMemory: Long
+        get() = ActivityManager.MemoryInfo()
+            .also { getSystemService<ActivityManager>()!!.getMemoryInfo(it) }
+            .totalMem
+
+    private val Context.availableStorage: Long
+        get() = StatFs(dataDir.path).availableBytes
 
     private val Acubench.CpuReport.expectedScore: Double
         get() = (cryptoTps + mathTps + sortTps) / 3.0

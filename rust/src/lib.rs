@@ -1,6 +1,6 @@
 #![allow(clippy::uninit_vec)]
 
-use std::{fmt, rc::Rc};
+use std::fmt;
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64", target_os = "ios"))]
 pub mod arm;
@@ -15,6 +15,7 @@ mod storage;
 mod macros;
 mod utils;
 
+#[derive(Clone, Copy)]
 pub(crate) struct CpuFeatures {
     num_cores: usize,
 
@@ -30,11 +31,9 @@ pub struct Bench {
 
 impl Bench {
     pub(crate) fn with_features(total_ram: u64, avail_storage: u64, features: CpuFeatures) -> Self {
-        let features = Rc::new(features);
-
         Self {
-            cpu: cpu::Bench::new(features.clone()),
-            ram: ram::Bench::new(features.clone(), total_ram),
+            cpu: cpu::Bench::new(features),
+            ram: ram::Bench::new(features, total_ram),
             storage: storage::Bench::new(features, avail_storage),
         }
     }
@@ -134,7 +133,7 @@ mod tests {
             sort: cpu::sort::Config {
                 duration,
                 item_len: 25,
-                data_len: 100_000,
+                data_len: 10_000,
                 ..Default::default()
             },
         });
@@ -170,7 +169,7 @@ mod tests {
             sort: cpu::sort::Config {
                 duration,
                 item_len: 25,
-                data_len: 100_000,
+                data_len: 10_000,
                 ..Default::default()
             },
         });

@@ -16,4 +16,4 @@ COPY ./rust .
 COPY --from=prepare /usr/src/acubench/target ./target
 RUN cargo build --release
 
-CMD ["cargo", "test"]
+CMD ["cargo", "test", "--release"]
