@@ -76,8 +76,6 @@ cargo {
     profile = "release"
     prebuiltToolchains = true
     apiLevel = 29
-    // The linker wrapper runs a Python; the environment names it where plain "python" does not exist.
-    System.getenv("RUST_ANDROID_GRADLE_PYTHON_COMMAND")?.let { pythonCommand = it }
 }
 
 publishing {
