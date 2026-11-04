@@ -147,17 +147,12 @@ public struct CPUReport: Report {
     
     public let error: String?
     
-    fileprivate init(from cStruct: UnsafeMutablePointer<AcubenchFFI.CpuReport>) {
-        cryptoTPS = cStruct.pointee.crypto_tps
-        mathTPS = cStruct.pointee.math_tps
-        sortTPS = cStruct.pointee.sort_tps
-        score = cStruct.pointee.score
-        if let err = cStruct.pointee.err {
-            error = String(cString: err)
-        } else {
-            error = nil
-        }
-        drop_cpu_report(cStruct)
+    fileprivate init(from cStruct: AcubenchFFI.CpuReport) {
+        cryptoTPS = cStruct.crypto_tps
+        mathTPS = cStruct.math_tps
+        sortTPS = cStruct.sort_tps
+        score = cStruct.score
+        error = takeError(cStruct.err)
     }
 }
 
@@ -273,19 +268,14 @@ public struct RAMReport: Report {
     
     public let error: String?
     
-    fileprivate init(from cStruct: UnsafeMutablePointer<AcubenchFFI.RamReport>) {
-        totalMemory = UInt(cStruct.pointee.total_mem)
-        allocAvgTime = cStruct.pointee.alloc_avg_t
-        accessSequentialAvgTime = cStruct.pointee.access_seq_avg_t
-        accessRandomAvgTime = cStruct.pointee.access_rand_avg_t
-        accessConcurrentAvgTime = cStruct.pointee.access_con_avg_t
-        score = cStruct.pointee.score
-        if let err = cStruct.pointee.err {
-            error = String(cString: err)
-        } else {
-            error = nil
-        }
-        drop_ram_report(cStruct)
+    fileprivate init(from cStruct: AcubenchFFI.RamReport) {
+        totalMemory = UInt(cStruct.total_mem)
+        allocAvgTime = cStruct.alloc_avg_t
+        accessSequentialAvgTime = cStruct.access_seq_avg_t
+        accessRandomAvgTime = cStruct.access_rand_avg_t
+        accessConcurrentAvgTime = cStruct.access_con_avg_t
+        score = cStruct.score
+        error = takeError(cStruct.err)
     }
 }
 
@@ -403,17 +393,12 @@ public struct StorageReport: Report {
     
     public let error: String?
     
-    fileprivate init(from cStruct: UnsafeMutablePointer<AcubenchFFI.StorageReport>) {
-        availableStorage = UInt(cStruct.pointee.avail_storage)
-        accessSequentialAvgTime = cStruct.pointee.access_seq_avg_t
-        accessRandomAvgTime = cStruct.pointee.access_rand_avg_t
-        score = cStruct.pointee.score
-        if let err = cStruct.pointee.err {
-            error = String(cString: err)
-        } else {
-            error = nil
-        }
-        drop_storage_report(cStruct)
+    fileprivate init(from cStruct: AcubenchFFI.StorageReport) {
+        availableStorage = UInt(cStruct.avail_storage)
+        accessSequentialAvgTime = cStruct.access_seq_avg_t
+        accessRandomAvgTime = cStruct.access_rand_avg_t
+        score = cStruct.score
+        error = takeError(cStruct.err)
     }
 }
 
@@ -432,23 +417,7 @@ extension StorageReport: CustomDebugStringConvertible {
 }
 
 public class Acubench {
-    private let ptr: UnsafeMutableRawPointer
-
-    public init() {
-        let totalRam = Int64(ProcessInfo.processInfo.physicalMemory)
-        let availableStorage = FileManager.default.availableStorage
-        let hwcaps = Acubench.getHardwareCapabilities()
-        let i8mmMask = TypedU64(t: 0, v: hwcaps.i8mmMask)
-        let sveMask = TypedU64(t: 0, v: hwcaps.sveMask)
-        ptr = new_bench(
-            UInt64(totalRam),
-            UInt64(availableStorage),
-            hwcaps.hwcap,
-            hwcaps.hwcap2,
-            sveMask.toCStruct(),
-            i8mmMask.toCStruct()
-        )
-    }
+    public init() {}
     
     public func cpu(config: CPUConfig = CPUConfig()) throws -> CPUReport {
         try run(with: config, bench_cpu)
@@ -458,25 +427,25 @@ public class Acubench {
         try run(with: config, bench_cpu_multithread)
     }
     
+    /// Runs the RAM benchmarks; `totalMemory` is the platform's value at the time of the call.
     public func ram(config: RAMConfig = RAMConfig()) throws -> RAMReport {
-        try run(with: config, bench_ram)
+        let totalMemory = ProcessInfo.processInfo.physicalMemory
+        return try run(with: config) { bench_ram($0, totalMemory, $1) }
     }
     
+    /// Runs the storage benchmarks; `availableStorage` is the platform's value at the time of the call.
     public func storage(config: StorageConfig = StorageConfig()) throws -> StorageReport {
-        try run(with: config, bench_storage)
+        let availableStorage = UInt64(FileManager.default.availableStorage)
+        return try run(with: config) { bench_storage($0, availableStorage, $1) }
     }
     
-    private func run<C: Config, R: Report>(with config: C, _ bench: @escaping (UnsafeMutableRawPointer, C.CStruct) -> UnsafeMutablePointer<R.CStruct>?) throws -> R {
+    private func run<C: Config, R: Report>(with config: C, _ bench: (AcubenchFFI.Auxval, C.CStruct) -> R.CStruct) throws -> R {
         let cConfig = config.toCStruct()
         defer {
             config.dropCStruct(cConfig)
         }
         
-        guard let cReport = bench(ptr, cConfig) else {
-            throw Error.noPointer
-        }
-        
-        let report = R(from: cReport)
+        let report = R(from: bench(Acubench.auxval(), cConfig))
         if let error = report.error {
             throw Error.raw(error)
         }
@@ -484,8 +453,15 @@ public class Acubench {
         return report
     }
     
-    deinit {
-        drop_bench(ptr)
+    static func auxval() -> AcubenchFFI.Auxval {
+        let hwcaps = getHardwareCapabilities()
+        var cStruct = AcubenchFFI.Auxval()
+        cStruct.hwcap = hwcaps.hwcap
+        cStruct.hwcap2 = hwcaps.hwcap2
+        cStruct.sve_mask = TypedU64(t: 0, v: hwcaps.sveMask).toCStruct()
+        cStruct.i8mm_mask = TypedU64(t: 0, v: hwcaps.i8mmMask).toCStruct()
+        
+        return cStruct
     }
 
     static func getHardwareCapabilities() -> HardwareCapabilities {
@@ -523,7 +499,6 @@ public class Acubench {
     }
     
     enum Error: Swift.Error {
-        case noPointer
         case raw(String)
     }
 }
@@ -542,10 +517,18 @@ extension Config {
 private protocol Report {
     associatedtype CStruct
     
-    init(from cStruct: UnsafeMutablePointer<CStruct>)
+    init(from cStruct: CStruct)
     
     var score: Double { get }
     var error: String? { get }
+}
+
+/// Copies the error message of a report, if any, and releases the native string.
+private func takeError(_ err: UnsafeMutablePointer<CChar>?) -> String? {
+    defer { drop_report_err(err) }
+    guard let err else { return nil }
+    
+    return String(cString: err)
 }
 
 extension FileManager {

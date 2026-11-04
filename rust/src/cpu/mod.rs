@@ -1,4 +1,4 @@
-use std::{fmt, rc::Rc};
+use std::fmt;
 
 use crate::{macros::*, CpuFeatures};
 
@@ -7,11 +7,11 @@ pub(crate) mod math;
 pub(crate) mod sort;
 
 pub struct Bench {
-    features: Rc<CpuFeatures>,
+    features: CpuFeatures,
 }
 
 impl Bench {
-    pub(crate) fn new(features: Rc<CpuFeatures>) -> Self {
+    pub(crate) fn new(features: CpuFeatures) -> Self {
         Self { features }
     }
 
