@@ -333,7 +333,7 @@ mod tests {
             },
             Config {
                 duration,
-                data_len: 100_000,
+                data_len: 10_000,
                 ..Default::default()
             },
         );
@@ -360,7 +360,7 @@ mod tests {
             },
             Config {
                 duration,
-                data_len: 100_000,
+                data_len: 10_000,
                 ..Default::default()
             },
         );

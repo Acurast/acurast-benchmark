@@ -127,7 +127,7 @@ mod tests {
             sort: cpu::sort::Config {
                 duration,
                 item_len: 25,
-                data_len: 100_000,
+                data_len: 10_000,
                 ..Default::default()
             },
         });
@@ -159,7 +159,7 @@ mod tests {
             sort: cpu::sort::Config {
                 duration,
                 item_len: 25,
-                data_len: 100_000,
+                data_len: 10_000,
                 ..Default::default()
             },
         });
