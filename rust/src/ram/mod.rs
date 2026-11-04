@@ -1,5 +1,4 @@
 use core::fmt;
-use std::rc::Rc;
 
 use crate::{macros::*, utils::MB, CpuFeatures};
 
@@ -7,12 +6,12 @@ pub(crate) mod access;
 pub(crate) mod alloc;
 
 pub struct Bench {
-    features: Rc<CpuFeatures>,
+    features: CpuFeatures,
     total_mem: u64,
 }
 
 impl Bench {
-    pub(crate) fn new(features: Rc<CpuFeatures>, total_mem: u64) -> Self {
+    pub(crate) fn new(features: CpuFeatures, total_mem: u64) -> Self {
         Self { features, total_mem }
     }
 

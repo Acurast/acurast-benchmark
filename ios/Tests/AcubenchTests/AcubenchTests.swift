@@ -5,6 +5,7 @@
 //  Created by Pablo Martinez Piles on 6/3/25.
 //
 
+import Foundation
 import Testing
 @testable import Acubench
 
@@ -120,4 +121,21 @@ private extension Double {
         
         return 1.0 / self
     }
+}
+
+@Test func test_ram_reports_total_memory_of_platform() async throws {
+    let acubench = Acubench()
+    
+    let report = try acubench.ram(config: RAMConfig(iters: 0))
+    
+    #expect(report.totalMemory == UInt(ProcessInfo.processInfo.physicalMemory))
+}
+
+@Test func test_storage_reports_available_storage_of_platform() async throws {
+    let acubench = Acubench()
+    
+    let report = try acubench.storage(config: StorageConfig(iters: 0))
+    
+    let drift = abs(Int(report.availableStorage) - FileManager.default.availableStorage)
+    #expect(drift <= 64 * 1024 * 1024)
 }

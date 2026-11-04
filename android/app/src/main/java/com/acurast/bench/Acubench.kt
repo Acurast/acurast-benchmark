@@ -9,15 +9,10 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 public class Acubench(context: Context) {
-    private val ptr: Long
-
-    init {
-        ptr = __new__(context.totalRam ?: 0, context.availableStorage)
-    }
+    private val context: Context = context.applicationContext
 
     public fun cpu(config: CpuConfig = CpuConfig()): CpuReport =
         __cpu__(
-            ptr,
             config.cryptoDuration.inWholeMilliseconds,
             config.cryptoDataSize,
             config.mathDuration.inWholeMilliseconds,
@@ -29,7 +24,6 @@ public class Acubench(context: Context) {
 
     public fun cpuMultithread(config: CpuConfig = CpuConfig()): CpuReport =
         __cpu_multithread__(
-            ptr,
             config.cryptoDuration.inWholeMilliseconds,
             config.cryptoDataSize,
             config.mathDuration.inWholeMilliseconds,
@@ -38,9 +32,10 @@ public class Acubench(context: Context) {
             config.sortDataSize,
         )
 
+    /** Runs the RAM benchmarks; [RamReport.totalMemory] is the platform's value at the time of the call. */
     public fun ram(config: RamConfig = RamConfig()): RamReport =
         __ram__(
-            ptr,
+            context.totalRam ?: 0,
             config.allocIters,
             config.allocDataSize,
             config.accessSequentialIters,
@@ -51,9 +46,10 @@ public class Acubench(context: Context) {
             config.accessConcurrentDataSize,
         )
 
+    /** Runs the storage benchmarks; [StorageReport.availableStorage] is the platform's value at the time of the call. */
     public fun storage(config: StorageConfig): StorageReport =
         __storage__(
-            ptr,
+            context.availableStorage,
             config.dir.absolutePath,
             config.accessSequentialIters,
             config.accessSequentialDataSizeMB,
@@ -64,9 +60,8 @@ public class Acubench(context: Context) {
     public fun storage(context: Context): StorageReport =
         storage(StorageConfig(context))
 
-    public fun destroy() {
-        __delete__(ptr)
-    }
+    @Deprecated("The benchmark holds no native state, there is nothing to release.")
+    public fun destroy() {}
 
     private val Context.totalRam: Long?
         get() {
@@ -81,11 +76,7 @@ public class Acubench(context: Context) {
     private val Context.availableStorage: Long
         get() = StatFs(dataDir.path).availableBytes
 
-    private external fun __new__(totalRam: Long, availStorage: Long): Long
-    private external fun __delete__(ptr: Long)
-
     private external fun __cpu__(
-        ptr: Long,
         cryptoDuration: Long,
         cryptoDataLen: Long,
         mathDuration: Long,
@@ -95,7 +86,6 @@ public class Acubench(context: Context) {
         sortDataLen: Long,
     ): CpuReport
     private external fun __cpu_multithread__(
-        ptr: Long,
         cryptoDuration: Long,
         cryptoDataLen: Long,
         mathDuration: Long,
@@ -105,7 +95,7 @@ public class Acubench(context: Context) {
     ): CpuReport
 
     private external fun __ram__(
-        ptr: Long,
+        totalRam: Long,
         allocIters: Long,
         allocDataLen: Long,
         accessSeqIters: Long,
@@ -117,7 +107,7 @@ public class Acubench(context: Context) {
     ): RamReport
 
     private external fun __storage__(
-        ptr: Long,
+        availStorage: Long,
         dir: String,
         accessSeqIters: Long,
         accessSeqDataLenMB: Long,
