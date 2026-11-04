@@ -200,12 +200,6 @@ Replace `<version>` with the latest version available on [Jitpack](https://jitpa
     storage()
     ```
 
-3. **Clean Up**  
-    Release the resources when done:
-    ```kotlin
-    acubench.destroy()
-    ```
-
 #### Configuration
 
 The configuration structures allow you to customize the behavior of the benchmarks. Each structure provides fields to fine-tune the parameters for specific tests. If not specified, default values will be used.

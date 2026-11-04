@@ -1,12 +1,18 @@
 package com.acurast.bench
 
+import android.app.ActivityManager
 import android.content.Context
+import android.os.StatFs
+import androidx.core.content.getSystemService
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlin.math.abs
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.measureTime
 
@@ -18,6 +24,9 @@ import kotlin.time.measureTime
 @RunWith(AndroidJUnit4::class)
 class AcubenchTest {
     companion object {
+        /** Free storage moves between two reads; anything beyond this is not drift. */
+        private const val STORAGE_TOLERANCE = 64L * 1024 * 1024
+
         @BeforeClass
         @JvmStatic
         fun setupAll() {
@@ -148,6 +157,29 @@ class AcubenchTest {
 
         println(report.toPrettyString())
     }
+
+    @Test
+    fun testRamReportsTotalMemoryOfPlatform() {
+        val report = acubench.ram(Acubench.RamConfig(iters = 0))
+
+        assertEquals(context.totalMemory, report.totalMemory)
+    }
+
+    @Test
+    fun testStorageReportsAvailableStorageOfPlatform() {
+        val report = acubench.storage(Acubench.StorageConfig(context, iters = 0))
+
+        val drift = abs(report.availableStorage - context.availableStorage)
+        assertTrue("available storage drifted by $drift bytes", drift <= STORAGE_TOLERANCE)
+    }
+
+    private val Context.totalMemory: Long
+        get() = ActivityManager.MemoryInfo()
+            .also { getSystemService<ActivityManager>()!!.getMemoryInfo(it) }
+            .totalMem
+
+    private val Context.availableStorage: Long
+        get() = StatFs(dataDir.path).availableBytes
 
     private val Acubench.CpuReport.expectedScore: Double
         get() = (cryptoTps + mathTps + sortTps) / 3.0
