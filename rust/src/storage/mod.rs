@@ -1,22 +1,28 @@
 use core::fmt;
 
-use crate::{macros::*, CpuFeatures};
+use crate::{macros::*, utils::GB, CpuFeatures};
 
 pub(crate) mod access;
 
 pub struct Bench {
     features: CpuFeatures,
+    avail_storage: u64,
 }
 
 impl Bench {
-    pub(crate) fn new(features: CpuFeatures) -> Self {
-        Self { features }
+    pub(crate) fn new(features: CpuFeatures, avail_storage: u64) -> Self {
+        Self { features, avail_storage }
+    }
+
+    pub fn avail_storage(&self) -> u64 {
+        self.avail_storage
     }
 
     fn_bench!(access);
 
     pub(crate) fn all(&self, config: Config) -> Result<Report, Error> {
         Ok(Report {
+            avail_storage: self.avail_storage,
             access: self.access(config.access).map_err(Error::Access)?,
         })
     }
@@ -28,6 +34,7 @@ pub struct Config {
 }
 
 pub struct Report {
+    pub avail_storage: u64,
     pub access: access::Report,
 }
 
@@ -35,6 +42,11 @@ impl fmt::Display for Report {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let i = "::::";
         writeln!(f, "Storage")?;
+        writeln!(
+            f,
+            "{i} available storage {:.2} GB",
+            (self.avail_storage as f64) / GB as f64,
+        )?;
         write!(f, "{i} {}", self.access)?;
 
         Ok(())

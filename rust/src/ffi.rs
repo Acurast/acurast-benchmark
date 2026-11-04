@@ -10,7 +10,7 @@ use std::{
 
 use libc::c_char;
 
-use crate::{arm, cpu, ram, storage, Bench};
+use crate::{arm, cpu, ram, storage, CpuFeatures};
 
 #[repr(C)]
 pub struct TypedU64 {
@@ -38,9 +38,9 @@ impl From<Auxval> for arm::Auxval {
 }
 
 macro_rules! bench {
-    ($bench:expr, $mod:ident, $typ:ident, $config:expr) => {{
+    ($bench:expr, $typ:ident, $config:expr) => {{
         match (&$config).into() {
-            Some(config) => Some($bench.$mod.$typ(config)),
+            Some(config) => Some($bench.$typ(config)),
             None => None,
         }.transpose().map_err(err_to_cstring)
     }};
@@ -71,15 +71,15 @@ pub struct CpuReport {
 
 #[no_mangle]
 pub extern "C" fn bench_cpu(auxval: Auxval, config: CpuConfig) -> CpuReport {
-    let bench = Bench::with_auxval(auxval.into());
+    let bench = cpu::Bench::new(CpuFeatures::with_auxval(auxval.into()));
 
     __bench_cpu(&bench, config).into()
 }
 
-fn __bench_cpu(bench: &Bench, config: CpuConfig) -> Result<CpuCombinedReports, CString> {
-    let crypto_report = bench!(bench, cpu, crypto, config)?;
-    let math_report = bench!(bench, cpu, math, config)?;
-    let sort_report = bench!(bench, cpu, sort, config)?;
+fn __bench_cpu(bench: &cpu::Bench, config: CpuConfig) -> Result<CpuCombinedReports, CString> {
+    let crypto_report = bench!(bench, crypto, config)?;
+    let math_report = bench!(bench, math, config)?;
+    let sort_report = bench!(bench, sort, config)?;
 
     let report = (
         crypto_report,
@@ -92,15 +92,15 @@ fn __bench_cpu(bench: &Bench, config: CpuConfig) -> Result<CpuCombinedReports, C
 
 #[no_mangle]
 pub extern "C" fn bench_cpu_multithread(auxval: Auxval, config: CpuConfig) -> CpuReport {
-    let bench = Bench::with_auxval(auxval.into());
+    let bench = cpu::Bench::new(CpuFeatures::with_auxval(auxval.into()));
 
     __bench_cpu_multithread(&bench, config).into()
 }
 
-fn __bench_cpu_multithread(bench: &Bench, config: CpuConfig) -> Result<CpuCombinedReports, CString> {
-    let crypto_report = bench!(bench, cpu, crypto_multithread, config)?;
-    let math_report = bench!(bench, cpu, math_multithread, config)?;
-    let sort_report = bench!(bench, cpu, sort_multithread, config)?;
+fn __bench_cpu_multithread(bench: &cpu::Bench, config: CpuConfig) -> Result<CpuCombinedReports, CString> {
+    let crypto_report = bench!(bench, crypto_multithread, config)?;
+    let math_report = bench!(bench, math_multithread, config)?;
+    let sort_report = bench!(bench, sort_multithread, config)?;
 
     let report = (
         crypto_report,
@@ -140,15 +140,15 @@ pub struct RamReport {
 
 #[no_mangle]
 pub extern "C" fn bench_ram(auxval: Auxval, total_mem: u64, config: RamConfig) -> RamReport {
-    let bench = Bench::with_auxval(auxval.into());
+    let bench = ram::Bench::new(CpuFeatures::with_auxval(auxval.into()), total_mem);
     let report = __bench_ram(&bench, config);
 
-    (total_mem, report).into()
+    (bench.total_mem(), report).into()
 }
 
-fn __bench_ram(bench: &Bench, config: RamConfig) -> Result<RamCombinedReports, CString> {
-    let alloc_report = bench!(bench, ram, alloc, config)?;
-    let access_report = bench!(bench, ram, access, config)?;
+fn __bench_ram(bench: &ram::Bench, config: RamConfig) -> Result<RamCombinedReports, CString> {
+    let alloc_report = bench!(bench, alloc, config)?;
+    let access_report = bench!(bench, access, config)?;
 
     let report = (alloc_report, access_report);
 
@@ -178,14 +178,14 @@ pub struct StorageReport {
 
 #[no_mangle]
 pub extern "C" fn bench_storage(auxval: Auxval, avail_storage: u64, config: StorageConfig) -> StorageReport {
-    let bench = Bench::with_auxval(auxval.into());
+    let bench = storage::Bench::new(CpuFeatures::with_auxval(auxval.into()), avail_storage);
     let report = __bench_storage(&bench, config);
 
-    (avail_storage, report).into()
+    (bench.avail_storage(), report).into()
 }
 
-fn __bench_storage(bench: &Bench, config: StorageConfig) -> Result<StorageCombinedReports, CString> {
-    let access_report = bench!(bench, storage, access, config)?;
+fn __bench_storage(bench: &storage::Bench, config: StorageConfig) -> Result<StorageCombinedReports, CString> {
+    let access_report = bench!(bench, access, config)?;
 
     let report = access_report;
 
